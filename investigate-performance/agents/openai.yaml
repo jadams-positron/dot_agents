@@ -1,0 +1,4 @@
+interface:
+  display_name: "Perf Fuzz Investigator"
+  short_description: "Benchmark, fuzz, and profile code paths"
+  default_prompt: "Use $investigate-performance to build benchmark, race, fuzz, and profiling coverage for this endpoint or subsystem."
