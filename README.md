@@ -38,6 +38,11 @@ your local agent directories. Add this repo to your gaal config
 
 ```yaml
 schema: 1
+repositories:
+  ~/code/github/jadams-positron/dot_agents:
+    type: git
+    url: git@github.com:jadams-positron/dot_agents.git
+    version: main
 skills:
   - source: git@github.com:jadams-positron/dot_agents.git
     agents:
@@ -51,6 +56,9 @@ skills:
       - frontend-design
       - investigate-performance
 ```
+
+`repositories` keeps a local working checkout of this repo; `skills` installs
+the skill collections into your agent directories.
 
 `select` matches each skill's `name` from its `SKILL.md` frontmatter — so the
 `document-distiller/` directory is selected as `documentation-distiller`. Omit
