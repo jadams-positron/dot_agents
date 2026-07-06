@@ -1,11 +1,7 @@
 # dot_agents
 
-A personal collection of AI agent skills, modeled after `~/.agents` and kept in
-sync across machines with [gaal](https://github.com/getgaal/gaal).
-
-> [!NOTE]
-> This repository is **not authoritative for Positron today** — it is a personal
-> setup for experimenting with shared agent skills, not an official source.
+A collection of AI agent skills, modeled after `~/.agents` and kept in sync
+across machines with [gaal](https://github.com/getgaal/gaal).
 
 ## Layout
 
