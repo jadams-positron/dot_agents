@@ -1,0 +1,17 @@
+# semantic-delta-catalog burn-down. Copy to semantic-delta-catalog.tsv at repo root and fill in.
+# Tab-separated. Lines starting with # are comments — strip before machine-parsing.
+# status vocabulary:
+#   pending  delta identified, not yet swept
+#   swept    grep/ast-grep run, ZERO hits on the changed surface (one closing row per delta)
+#   hit      occurrence found, not yet pinned  <-- GATE FAILS while any row is 'hit' or 'pending'
+#   tested   pinned by a test that FAILS under the wrong (target) semantics
+#   waived   provably safe; one-line reason lives in the pinning-test column
+#   n/a      delta does not apply to this language/version pair
+# delta-id references references/language-deltas.md (PG-* Python->Go, GG-* Go version/Go->Go).
+delta-id	construct	pattern	risk	location(s)	pinning-test	status
+PG-01	negative integer floor-div	ast-grep -l go -p '$A / $B'	high	billing/proration.go:88	TestProrate_NegativeDaysFloors	tested
+PG-03	empty-slice truthiness	rg -n 'if not '	med	svc/filter.py:42 -> svc/filter.go:51	TestFilter_EmptyInputSkips	tested
+PG-04	map iteration order into output	ast-grep -l go -p 'for $K, $V := range $M { $$$ }'	high	export/render.go:120	differential-golden-harness: case export-order	tested
+PG-07	int64 id through json	rg -n 'json.Unmarshal'	high	api/decode.go:33	waived: ids are strings on the wire	waived
+GG-01	nil-map field write	ast-grep -l go -p '$M[$K] = $V'	med	cache/store.go:17	TestStore_WriteOnZeroValue	tested
+GG-03	loop-var capture (1.21->1.22)	rg -n 'go func\('	low	worker/fanout.go	—	swept

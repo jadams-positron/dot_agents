@@ -1,0 +1,10 @@
+#	Cross-cutting decisions ledger (the LIFETIMES.tsv analog). Copy to DECISIONS.tsv at the migration root.
+#	One row per module/object. Resolve each judgment call ONCE here so it is consistent across every translated unit.
+#	Tab-separated. Fill every column; a "TODO" in any column blocks gate-translated. Reference a row from PORTING.md / review comments by module_or_object.
+module_or_object	ownership_who_frees_or_closes	nil_vs_zero_value_policy	error_wrapping_convention	concurrency_model	logging	notes
+#	--- example rows (delete before use) ---
+db.Conn	caller that Opens Closes; pool owns pooled conns	nil handle == not-yet-opened; never zero-value	wrap with %w + "db: " prefix; sentinel ErrNoRows	single-writer, callers must not share a *Conn across goroutines	structured, level=debug on query, error on failure	mirrors source ConnectionManager; no retry logic in port
+cache.Store	Store owns entries; eviction frees	nil value == miss; zero-value is a legit cached value	no wrap, return (v, ok) like source	sync.RWMutex around map; no per-key locks in port	no logging in hot path	source used threading.Lock -> RWMutex per PORTING.md row 8
+http.Handler	handler owns request-scoped objects only	nil pointer never returned to client; 500 instead	wrap at boundary with request id	one goroutine per request; no shared mutable state	access log at boundary only	panics recovered at middleware, not per handler
+#	--- your rows below ---
+TODO	TODO	TODO	TODO	TODO	TODO	TODO
