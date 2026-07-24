@@ -5,11 +5,12 @@
 #   file_issue.sh --repo <owner/repo> --project <project-number> \
 #                 --title <title> --body-file <path> \
 #                 [--label <label>]... [--assignee <user>]... \
-#                 [--owner <project-owner>]
+#                 [--owner <project-owner>] [--parent <epic-issue-number>]
 #
 # Defaults: --owner positron-ai
+# --parent attaches the new issue to the given epic as a native GitHub sub-issue.
 #
-# Prints the created issue URL on stdout. Exits non-zero if either step fails.
+# Prints the created issue URL on stdout. Exits non-zero if any step fails.
 
 set -euo pipefail
 
@@ -18,11 +19,12 @@ PROJECT=""
 TITLE=""
 BODY_FILE=""
 OWNER="positron-ai"
+PARENT=""
 LABELS=()
 ASSIGNEES=()
 
 usage() {
-  sed -n '2,12p' "$0" >&2
+  sed -n '2,13p' "$0" >&2
   exit 2
 }
 
@@ -33,6 +35,7 @@ while [[ $# -gt 0 ]]; do
     --title) TITLE="$2"; shift 2 ;;
     --body-file) BODY_FILE="$2"; shift 2 ;;
     --owner) OWNER="$2"; shift 2 ;;
+    --parent) PARENT="$2"; shift 2 ;;
     --label) LABELS+=("$2"); shift 2 ;;
     --assignee) ASSIGNEES+=("$2"); shift 2 ;;
     -h|--help) usage ;;
@@ -59,5 +62,12 @@ if [[ -z "$ISSUE_URL" || "$ISSUE_URL" != https://github.com/* ]]; then
 fi
 
 gh project item-add "$PROJECT" --owner "$OWNER" --url "$ISSUE_URL" >/dev/null
+
+if [[ -n "$PARENT" ]]; then
+  ISSUE_NUM="${ISSUE_URL##*/}"
+  # sub_issues wants the child's numeric database id, not the GraphQL node ID
+  SUB_ID="$(gh api "repos/$REPO/issues/$ISSUE_NUM" --jq .id)"
+  gh api -X POST "repos/$REPO/issues/$PARENT/sub_issues" -F sub_issue_id="$SUB_ID" >/dev/null
+fi
 
 echo "$ISSUE_URL"

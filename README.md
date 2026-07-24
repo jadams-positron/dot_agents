@@ -42,6 +42,7 @@ over with `cutover-strangler-runbook`.
 | `file-issue` | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
 | `frontend-design` | Create distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. |
 | `investigate-performance` | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
+| `reconcile-issues` | Audit a set of GitHub issues (epic children, a title prefix, a label) against the codebase — which shipped, which are superseded, which need re-scoping — then execute the closes, consolidations, epic rewrite, and native sub-issue sync on approval. |
 
 ## Syncing
 
@@ -74,6 +75,7 @@ skills:
       - investigate-performance
       - migration-plan-and-discipline
       - migration-worthiness-memo
+      - reconcile-issues
       - semantic-delta-catalog
       - test-census-parity
 ```

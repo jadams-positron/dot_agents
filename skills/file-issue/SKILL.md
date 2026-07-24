@@ -43,7 +43,8 @@ Ask for any of these the user has not already provided. Batch the questions in a
 | Field | Required | Notes |
 |-------|----------|-------|
 | Repo | yes | `owner/repo`. If the user names a Positron repo without owner (e.g. `platformd`), assume `positron-ai/<repo>`. |
-| Project | yes | Project name or number under `positron-ai`. The user often refers to "MCC" — resolve to the project number via `gh project list` (see [references/projects.md](references/projects.md)). |
+| Project | yes | Project name or number under `positron-ai`. The user often refers to "MCC" — resolve to the project number via `gh project list` (see [references/projects.md](references/projects.md)). If the new issue is a sibling or child of existing issues (follow-up, epic subtask, consolidation), match their placement instead of asking: `gh issue view <related> --json projectItems --jq '[.projectItems[].title]'` — the parent epic's membership wins. |
+| Parent epic | optional | If the issue is a subtask of an epic, attach it as a **native sub-issue** (pass `--parent <epic-number>` to the script). A checklist line in the epic body is not a sub-issue relationship. |
 | Title | yes | Short, imperative. Use the user's own words; do not invent. |
 | Body | optional | Draft from the user's description using the template in [references/issue-template.md](references/issue-template.md). Confirm with the user before filing. |
 | Labels | optional | Only if the user specifies them. Do not invent labels — `gh` fails on labels that do not exist in the target repo. |
@@ -59,7 +60,7 @@ If the user gave a project name, look it up:
 gh project list --owner positron-ai
 ```
 
-Match against the `Title` column. The MCC project is currently titled `Misson Control Center (a.k.a. Orchestrator)` (note the typo). Confirm the chosen project with the user if there is any ambiguity.
+Match against the `Title` column. The MCC project is currently titled `Mission Control Center` (number 31; it was previously `Misson Control Center (a.k.a. Orchestrator)` — titles drift, trust the live listing). Confirm the chosen project with the user if there is any ambiguity.
 
 See [references/projects.md](references/projects.md) for more.
 
@@ -72,10 +73,18 @@ scripts/file_issue.sh \
   --repo positron-ai/<repo> \
   --project <project-number> \
   --title "<title>" \
-  --body-file /tmp/issue-body.md
+  --body-file /tmp/issue-body.md \
+  [--parent <epic-issue-number>]
 ```
 
-The script runs `gh issue create`, captures the resulting issue URL, then runs `gh project item-add` to attach it to the project. It prints the issue URL on success.
+The script runs `gh issue create`, captures the resulting issue URL, runs `gh project item-add` to attach it to the project, and — when `--parent` is given — attaches it to the epic as a native GitHub sub-issue. It prints the issue URL on success.
+
+To attach an *existing* issue as a sub-issue (the API wants the child's numeric database id, not the node ID):
+
+```bash
+id=$(gh api repos/<owner/repo>/issues/<child> --jq .id)
+gh api -X POST repos/<owner/repo>/issues/<parent>/sub_issues -F sub_issue_id=$id
+```
 
 For a batch, call the script once per issue, sequentially. After all are filed, report the URLs back to the user as a list.
 
@@ -92,6 +101,6 @@ Skip sections that do not apply. Keep bodies short — issues should fit on one 
 
 ## Resources
 
-- [`scripts/file_issue.sh`](scripts/file_issue.sh) — creates an issue and adds it to a project in one call
+- [`scripts/file_issue.sh`](scripts/file_issue.sh) — creates an issue, adds it to a project, and optionally attaches it to a parent epic as a native sub-issue, in one call
 - [`references/projects.md`](references/projects.md) — how to look up org-level projects
 - [`references/issue-template.md`](references/issue-template.md) — default issue body template

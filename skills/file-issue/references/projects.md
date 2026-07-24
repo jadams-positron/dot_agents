@@ -16,7 +16,7 @@ The current default for new tickets is **MCC**:
 
 | User says | Title in `gh project list` | Number |
 |-----------|----------------------------|--------|
-| "MCC" / "Mission Control Center" / "Orchestrator" | `Misson Control Center (a.k.a. Orchestrator)` (sic — typo in source) | 31 |
+| "MCC" / "Mission Control Center" / "Orchestrator" | `Mission Control Center` (renamed from `Misson Control Center (a.k.a. Orchestrator)`) | 31 |
 
 Project numbers and titles change over time. Always confirm by running `gh project list --owner positron-ai` rather than trusting the table above. If the lookup returns a different number, update this table.
 
@@ -39,4 +39,15 @@ gh project item-list <project-number> --owner positron-ai --limit 50
 - **`--owner` is required** — without it, `gh` defaults to the user's projects, not the org's.
 - **Use the number, not the ID** — `gh project list` shows both; `item-add` wants the integer number.
 - **`project` scope on the token** — `gh auth status` must list `read:project` or `project`. If not, run `gh auth refresh -s project` (interactive).
-- **The project title has a typo** — `Misson` not `Mission`. Match it exactly when grepping.
+- **Titles drift** — the MCC project was renamed at least once (`Misson` → `Mission`). Match loosely when grepping the listing, then use the number.
+
+## Sibling placement heuristic
+
+When the new issue relates to existing issues (follow-up, epic subtask, consolidation), match their project placement instead of guessing:
+
+```bash
+gh issue view <related-issue> --repo positron-ai/<repo> \
+  --json projectItems --jq '[.projectItems[].title]'
+```
+
+Children of an epic that is itself in a project belong in that project, even when other siblings were filed without one.
