@@ -1,6 +1,6 @@
 ---
 name: reconcile-issues
-description: This skill should be used when auditing a set of GitHub issues (an epic's children, a title prefix, a label, a stale backlog) against the current codebase to determine which are already implemented, superseded, or need re-scoping — and then executing the cleanup on approval: closing with rationale comments, consolidating residual scope into new issues, rewriting epic bodies, and syncing native sub-issues. Triggers include "which of these issues can be closed", "reconcile the backlog against the code", "audit the epic's children", "are these issues still valid", "close out the done ones".
+description: This skill should be used when auditing a set of GitHub issues (an epic's children, a title prefix, a label, a stale backlog) against the current codebase to determine which are already implemented, superseded, or in need of re-scoping — and then, on approval, executing the cleanup — closing with rationale comments, consolidating residual scope into new issues, rewriting epic bodies, and syncing native sub-issues. Triggers include "which of these issues can be closed", "reconcile the backlog against the code", "audit the epic's children", "are these issues still valid", "close out the done ones".
 ---
 
 # Reconcile Issues
