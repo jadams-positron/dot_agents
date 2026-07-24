@@ -54,6 +54,7 @@ Read the live enhanced-markdown spec, then compose the body in Notion-flavored M
 
 - **Cite every load-bearing claim — non-negotiable.** Every quantitative claim, quoted statement, and "the code does X" assertion needs a specific, clickable source: a **commit-pinned** GitHub file+line permalink, a PR/issue/commit link, or a real Slack message permalink. Follow `references/citations.md` exactly — including its warning that a stale local clone yields wrong line numbers, so verify each line at the pinned commit (`git grep -n <anchor> <sha> -- <path>`). Bare `file:line` strings, `#channel` names, or "per Slack" do not count. Inline or a bottom "Key source references" section (or both) is fine; absent is not.
 - **No numbered section scheme** (teamspace rule). Use descriptive `##` headers, never a "05/10/20/30" or "1./2./3." section numbering.
+- **Do not add arbitrary blank lines — no `<empty-block/>` padding.** Notion already renders correct spacing between blocks; inserting `<empty-block/>` before/after headers, around tables, or between paragraphs produces visibly bloated pages. Write blocks back to back. Reserve `<empty-block/>` for the rare case where a genuinely empty visual line is the intent, not as separator hygiene.
 - Lead with a bottom-line callout / TL;DR so a skimming reader gets the answer immediately.
 - Use the `<table>` XML form for tables (Notion Markdown does not take pipe tables); wrap anything with `` ` `` / `[` / `<` / `$` etc. in code spans, or escape it, outside code blocks.
 

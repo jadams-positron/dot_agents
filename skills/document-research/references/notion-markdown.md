@@ -53,7 +53,8 @@ Notion Markdown does **not** accept pipe (`|`) tables. Use the XML form:
   constexpr size_t hbm_capacity = 0x4000'0000;
   ```
   ````
-- **Divider:** `---`. **Headings:** `##` / `###` (5–6 collapse to 4). **Empty line:** `<empty-block/>` on its own line (plain blank lines get stripped).
+- **Divider:** `---`. **Headings:** `##` / `###` (5–6 collapse to 4).
+- **Empty lines: avoid them.** `<empty-block/>` on its own line is the only way to force a blank line (plain blank lines are stripped), but Notion already spaces blocks correctly — so **do not** sprinkle `<empty-block/>` before/after headers, around tables, or between paragraphs. It renders as excessive whitespace and makes pages look padded. The upstream spec says it outright: *"Notion renders blocks with appropriate spacing, so there is almost never a need to use empty lines."* Write blocks consecutively.
 - **Inline math:** `` $`equation`$ ``. **Block math:** `$$` on its own lines.
 
 ## Mentions
