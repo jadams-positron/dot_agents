@@ -39,6 +39,7 @@ over with `cutover-strangler-runbook`.
 |---|---|
 | `cleanup-pr-description` | Rewrite a PR's description for clarity and accuracy, grounded in the actual diff, adversarially verifying every claim before updating the PR. |
 | `document-distiller` | Distill messy, verbose, or draft internal docs into concise, structured, actionable output while preserving facts, constraints, and decisions. |
+| `document-research` | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
 | `file-issue` | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
 | `frontend-design` | Create distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. |
 | `investigate-performance` | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
@@ -70,6 +71,7 @@ skills:
       - cutover-strangler-runbook
       - differential-golden-harness
       - documentation-distiller
+      - document-research
       - file-issue
       - frontend-design
       - investigate-performance
