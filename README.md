@@ -41,9 +41,9 @@ over with `cutover-strangler-runbook`.
 | `document-distiller` | Distill messy, verbose, or draft internal docs into concise, structured, actionable output while preserving facts, constraints, and decisions. |
 | `document-research` | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
 | `file-issue` | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
-| `frontend-design` | Create distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. |
 | `investigate-performance` | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
 | `reconcile-issues` | Audit a set of GitHub issues (epic children, a title prefix, a label) against the codebase — which shipped, which are superseded, which need re-scoping — then execute the closes, consolidations, epic rewrite, and native sub-issue sync on approval. |
+| `work-issue` | Work a GitHub issue end to end — implement in a worktree, run the quality gates, open a draft PR, drive CI to green, and resolve Bugbot findings. |
 
 ## Syncing
 
@@ -66,20 +66,7 @@ skills:
       - claude-code
       - codex
     global: true
-    select:
-      - cleanup-pr-description
-      - cutover-strangler-runbook
-      - differential-golden-harness
-      - documentation-distiller
-      - document-research
-      - file-issue
-      - frontend-design
-      - investigate-performance
-      - migration-plan-and-discipline
-      - migration-worthiness-memo
-      - reconcile-issues
-      - semantic-delta-catalog
-      - test-census-parity
+    # select: [document-research, file-issue]
 ```
 
 `repositories` keeps a local working checkout of this repo; `skills` installs
@@ -87,7 +74,9 @@ the skill collections into your agent directories.
 
 `select` matches each skill's `name` from its `SKILL.md` frontmatter — so the
 `document-distiller/` directory is selected as `documentation-distiller`. Omit
-`select` to install every skill in the repo.
+`select` to install every skill in the repo. Select deliberately: every installed
+skill's description occupies the model's context in every session, whether or not
+the skill runs.
 
 ```
 gaal sync
