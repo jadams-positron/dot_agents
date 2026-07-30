@@ -1,0 +1,4 @@
+interface:
+  display_name: "Distill"
+  short_description: "Reduce noise without losing essential meaning"
+  default_prompt: "Use $distill to simplify this artifact through at least three verified passes while preserving meaning and behavior."
