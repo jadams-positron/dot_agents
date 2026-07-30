@@ -38,8 +38,7 @@ over with `cutover-strangler-runbook`.
 | Skill | Description |
 |---|---|
 | `cleanup-pr-description` | Rewrite a PR's description for clarity and accuracy, grounded in the actual diff, adversarially verifying every claim before updating the PR. |
-| `distill` | Iteratively simplify code, prose, documentation, comments, notes, messages, and email through at least three verified reduction passes without losing essential meaning or behavior. |
-| `document-distiller` | Distill messy, verbose, or draft internal docs into concise, structured, actionable output while preserving facts, constraints, and decisions. |
+| `distill` | Iteratively simplify code, prose, and communication through at least three verified reduction passes; also structures internal docs and preserves the publishing workflow for runbooks. |
 | `document-research` | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
 | `file-issue` | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
 | `investigate-performance` | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
@@ -73,11 +72,10 @@ skills:
 `repositories` keeps a local working checkout of this repo; `skills` installs
 the skill collections into your agent directories.
 
-`select` matches each skill's `name` from its `SKILL.md` frontmatter — so the
-`document-distiller/` directory is selected as `documentation-distiller`. Omit
-`select` to install every skill in the repo. Select deliberately: every installed
-skill's description occupies the model's context in every session, whether or not
-the skill runs.
+`select` matches each skill's `name` from its `SKILL.md` frontmatter. Omit
+`select` to install every skill in the repo. Select deliberately: every
+installed skill's description occupies the model's context in every session,
+whether or not the skill runs.
 
 ```
 gaal sync

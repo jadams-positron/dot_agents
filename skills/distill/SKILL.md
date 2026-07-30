@@ -1,6 +1,6 @@
 ---
 name: distill
-description: Iteratively simplify code, prose, documentation, comments, notes, messages, and email through at least three reduction passes while preserving correctness, meaning, behavior, constraints, evidence, intent, and voice. Use when Codex is asked to distill, simplify, tighten, shorten, declutter, reduce noise or complexity, remove redundancy, improve readability, clean up an artifact, or make it clear and concise without losing substance.
+description: Iteratively simplify code, prose, documentation, comments, notes, messages, and email through at least three passes while preserving correctness, meaning, behavior, constraints, evidence, intent, and voice. Use for requests to distill, simplify, tighten, shorten, declutter, reduce noise or complexity, remove redundancy, improve readability, or clean up an artifact without losing substance. Also use when creating or updating setup guides, requirements, planning pages, wikis, runbooks, dependency docs, operational procedures, audits, decision records, or implementation briefs.
 ---
 
 # Distill
@@ -87,6 +87,10 @@ When the artifact contains Go, read [references/go.md](references/go.md) before 
 - Keep one purpose per section and one main idea per paragraph.
 - Remove throat-clearing, greetings, repeated summaries, stale history, and meta-commentary unless they serve the audience.
 - Preserve citations, qualifications, counterexamples, exact commands, and unresolved questions that affect interpretation or action.
+
+When creating or updating internal documentation, read
+[references/documentation.md](references/documentation.md). For any runbook,
+also read [references/runbooks.md](references/runbooks.md).
 
 ### Comments
 
