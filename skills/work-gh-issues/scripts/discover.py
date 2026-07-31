@@ -291,6 +291,18 @@ def open_blockers(blocked_by: Any) -> list[str]:
     return blockers
 
 
+def open_blocker_numbers(blocked_by: Any) -> list[int]:
+    """Return the issue numbers for every visible open dependency."""
+    if not isinstance(blocked_by, dict):
+        return []
+    return sorted(
+        node["number"]
+        for node in blocked_by.get("nodes", [])
+        if isinstance(node.get("number"), int)
+        and str(node.get("state", "OPEN")).upper() == "OPEN"
+    )
+
+
 def discover_issues(repository: str) -> dict[str, Any]:
     if not re.fullmatch(r"[^/\s]+/[^/\s]+", repository):
         raise ValueError("repository must be OWNER/REPO")
@@ -349,6 +361,7 @@ def discover_issues(repository: str) -> dict[str, Any]:
             "url": issue["url"],
             "labels": labels,
             "assignees": assignees,
+            "blocked_by": open_blocker_numbers(issue.get("blockedBy")),
             "updated_at": issue["updatedAt"],
         }
         if blocked_reasons:

@@ -10,15 +10,18 @@ description: This skill should be used when the user asks to work a GitHub issue
 Drive one GitHub issue from number to review-ready PR: read and restate the
 scope, implement exactly that scope in an isolated worktree, pass an
 honesty-audit gate chain (`fess` → `fix-all` → `wiggum`), ship a draft PR,
-iterate CI to green, flip to ready, and drain Bugbot findings on the latest
-commit. The human merges; this skill never does.
+iterate CI to green, collapse iterative commits into one clean issue commit,
+flip to ready, and drain Bugbot findings without re-growing the history. The
+human merges; this skill never does.
 
 ## Authorization
 
-Invoking this skill is explicit approval to commit, push (explicit refspec
-only), open a draft PR, mark it ready, and resolve review threads — on the
-issue branch only. It is NOT approval to merge, force-push, push to a
-protected branch, or commit in any other checkout or repo.
+Invoking this skill is explicit approval to commit, push with an explicit
+refspec, open a draft PR, mark it ready, and resolve review threads — on the
+issue branch only. It also approves rebasing and `--force-with-lease` with an
+explicit issue-branch refspec when tracking a stack parent and during the final
+history cleanup below. It is NOT approval to merge, force-push a base or
+protected branch, delete work, or commit in any other checkout or repo.
 
 ## Workflow
 
@@ -31,14 +34,22 @@ scope expansion.
 
 ### 2. Isolate
 
-Create a worktree (EnterWorktree tool, or `git worktree add` from the default
-branch). Rename any auto-generated branch to the project's convention
-(`ja-<issue>-<slug>`, whole name ≤20 chars). Before the first commit, check
-project memory / CLAUDE.md for known worktree gotchas and apply them
+If an orchestrator already created the current worktree and branch, reuse them
+exactly; do not create a nested worktree or rename the branch. Otherwise create
+a worktree (EnterWorktree tool, or `git worktree add` from the default branch)
+and name the branch using the project's convention. Before the first commit,
+check project memory / CLAUDE.md for known worktree gotchas and apply them
 proactively (examples in this environment: `golangci-lint cache clean`, strip
 ambient `MCC_*`/`HOUSTON_*`/`ATLAS_*` env before hook runs, and pass
 `-c core.hooksPath=$PWD/.githooks` when the shared hooksPath is an absolute
 path into another checkout).
+
+Resolve the intended PR base before editing. An explicit orchestrator-provided
+stack base wins; otherwise use the existing PR's `baseRefName`, the current
+branch's `gh-merge-base`, or finally the repository default branch. For a stack
+child, wait for the parent branch to exist on `origin`, fetch it, rebase onto
+it, and set `branch.<current>.gh-merge-base` to that exact branch. Never quietly
+flatten a child onto the default branch while its parent PR is open.
 
 ### 3. Implement exactly the scope
 
@@ -61,21 +72,23 @@ Run in order; each gate acts on the previous one's findings:
    creep counts as a fix.
 4. `wiggum` — loop until the Definition of Done holds: commit, then dispatch a
    SEPARATE fess subagent to audit the commit (never self-grade), fold real
-   findings back in, keep the branch rebased on its base. Bounded attempts
+   findings back in, keep the branch rebased on its resolved base. Bounded attempts
    (default 3) per failing gate, then escalate.
 
 ### 5. Ship the draft PR
 
-Commit with a why-focused message (no AI attribution, ever). Push with an
-explicit refspec: `git push -u origin <branch>`. Then:
+Commit with why-focused messages during development (no AI attribution, ever).
+Push with an explicit refspec: `git push -u origin HEAD:<branch>`. Then:
 
 ```bash
-gh pr create --draft --base <default-branch> --title "..." --body "..." \
-  --label <labels matching the issue>
+gh pr create --draft --base <resolved-base> --title "..." --body "..." \
+  --assignee @me --label <labels matching the issue>
 ```
 
 Body: terse — what/why in a few lines, `Closes #<N>`, and any judgment calls a
-reviewer should veto. No AI attribution footers.
+reviewer should veto. For a stack child, also name the parent issue/PR and base
+branch. No AI attribution footers. Verify `gh pr view --json baseRefName` equals
+the resolved base; correct it with `gh pr edit --base` before continuing.
 
 ### 6. CI to green
 
@@ -84,23 +97,65 @@ failure: fix on the branch, rerun local gates, push, repeat. Three attempts on
 the same failing signature without progress → stop and report rather than
 thrash.
 
-### 7. Mark ready
+### 7. Final history cleanup
+
+Keep the PR draft while cleaning its history. Once draft CI is green, update
+against the PR's current base, resolve any conflicts with code-grounded intent,
+and rerun affected tests. Then collapse every issue-branch commit above that
+base — including `fix`, review, CI, and cleanup checkpoints — into one
+why-focused commit:
+
+```bash
+branch=$(git branch --show-current)
+base=$(gh pr view --json baseRefName --jq .baseRefName)
+git fetch origin "$base"
+git rebase "origin/$base"
+pre_cleanup=$(git rev-parse HEAD)
+pre_cleanup_tree=$(git rev-parse "${pre_cleanup}^{tree}")
+git reset --soft "origin/$base"
+git commit -m "<why-focused issue commit>"
+test "$pre_cleanup_tree" = "$(git rev-parse 'HEAD^{tree}')"
+```
+
+The tree-OID equality is mandatory: history cleanup must not change content.
+Run the complete local gate chain after the rewrite, then push it with:
+
+```bash
+git push --force-with-lease origin "HEAD:$branch"
+```
+
+If the branch has no issue commits above the base, stop instead of creating an
+empty commit. Never use plain `--force`, and never target the base branch.
+
+Rerun CI on the rewritten SHA. Only that SHA may advance to ready.
+
+### 8. Mark ready
 
 When all checks pass on the latest commit: `gh pr ready <n>`.
 
-### 8. Drain Bugbot
+### 9. Drain Bugbot
 
 Wait for Cursor Bugbot to review the latest commit. For each finding: triage
 (use a bugbot-triage agent when available — verdict real / false-positive /
 uncertain with code-grounded reasoning), fix real ones, reply to each review
 comment in-thread with what was done (or why it's a false positive) and
-resolve the thread — never a top-level summary comment. Push fixes and repeat
-until Bugbot is clean on the latest commit. Then hand off: report the PR URL,
-state, and any open judgment calls. Do not merge.
+resolve the thread — never a top-level summary comment. After the history has
+been cleaned, fold every real fix into the single issue commit with
+`git commit --amend --no-edit`, rerun local gates, and push with the same
+explicit `--force-with-lease` refspec. Do not append `fix: a`, `fix: b`, or
+similar commits. Repeat CI and Bugbot until both are clean on the latest SHA.
+
+Before handoff, fetch the current PR base and verify it is an ancestor of HEAD.
+If it moved, rebase, re-squash/amend, and repeat the local/remote gates. Verify
+that `git rev-list --count origin/<base>..HEAD` is exactly `1`. Report the PR
+URL, state, stack parent/base when applicable, final SHA, and any open judgment
+calls. Do not merge.
 
 ## Escalation
 
 Stop and hand back to the human when: the same gate or CI signature fails 3
 times without progress; the issue scope turns out ambiguous or wrong against
 the code; a rebase conflict can't be resolved without guessing intent; or any
-action would be destructive (force-push, history rewrite, deleting work).
+action would delete work or rewrite anything outside the issue branch. A
+scoped rebase/history cleanup and explicit issue-branch `--force-with-lease`
+are part of this workflow, not escalation conditions.

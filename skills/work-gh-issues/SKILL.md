@@ -1,6 +1,6 @@
 ---
 name: work-gh-issues
-description: Discover and fan out actionable GitHub issues into independent Agent Deck Codex sessions, each with its own worktree and shared end-to-end quality gates. Use when the user asks to batch, start, launch, work, or orchestrate GitHub issues through Agent Deck, or invokes /work-gh-issues. Resolve a missing repository by offering the five most recently used repositories, and resolve missing issue numbers by listing open, non-blocked, not-already-claimed issues from the selected repository.
+description: Discover and fan out actionable GitHub issues into isolated Agent Deck Codex sessions, grouping interdependent work into native GitHub pull-request stacks and applying shared end-to-end quality gates. Use when the user asks to batch, start, launch, work, or orchestrate GitHub issues through Agent Deck, or invokes /work-gh-issues. Resolve a missing repository by offering the five most recently used repositories, and resolve missing issue numbers by listing open, non-blocked, not-already-claimed issues from the selected repository.
 ---
 
 # Work GitHub Issues
@@ -57,14 +57,48 @@ accept `all`, and stop for the answer. Treat the next reply as a continuation.
 Never silently include `in_progress` or `blocked` issues. If nothing is
 available, report that and launch nothing.
 
+## Plan dependencies and stacks
+
+Before launching, inspect every selected issue's title, body, comments,
+`blockedBy`, and `blocking` relationships. Also inspect enough of the current
+code to identify likely shared files, APIs, schemas, migrations, or generated
+artifacts. Build a dependency graph from evidence, not title similarity:
+
+- Add a hard edge when GitHub or the issue text says one issue depends on
+  another, or when one issue produces an API/schema/artifact the other needs.
+- Add an ordering edge when two issues will predictably conflict in the same
+  foundational code and there is a clear implementation order.
+- Leave unrelated issues independent. A shared label or subsystem alone is not
+  enough to stack them.
+- If a selected issue has an open prerequisite outside the selection, do not
+  launch it silently. Include the prerequisite or omit the dependent issue and
+  tell the human.
+
+A PR can have only one immediate base. Convert each connected component into a
+reviewable topological chain. Preserve true prerequisite order; serialize
+otherwise-independent siblings only when their expected overlap makes that
+worthwhile. Detect cycles and ask the human instead of inventing an order.
+
+GitHub recognizes a chain of ordinary PR base/head branches as a pull-request
+stack and exposes it through GraphQL `PullRequest.stack` and `stackEntry`.
+Current `gh` does not have a separate stack-creation command: create the root
+against the default branch, and create each child against the immediately
+preceding issue branch.
+
 ## Launch workers
 
 Run the bundled launcher instead of reconstructing commands:
 
 ```bash
 python3 <skill-dir>/scripts/launch.py \
-  --repo <local-path> <issue> [<issue> ...]
+  --repo <local-path> <issue> [<issue> ...] \
+  [--depends-on <child>:<immediate-parent> ...]
 ```
+
+Example: `--depends-on 22:21 --depends-on 23:22` creates a three-PR stack.
+The launcher topologically orders the sessions, resolves Agent Deck's actual
+possibly-prefixed parent branch after each launch, and gives that exact base to
+the child worker. Independent roots still run independently.
 
 Defaults:
 
@@ -90,11 +124,15 @@ Each worker receives instructions to:
 1. Run `work-issue` end to end for `OWNER/REPO#<issue>`.
 2. Reuse the current Agent Deck-created worktree and branch; never create a
    nested worktree or rename the branch.
-3. Before the first push or PR creation, perform a thorough local multi-angle
+3. For a stack child, wait for the parent branch, rebase onto it before editing,
+   keep it as the branch's `gh-merge-base`, and create the PR with that exact
+   `--base` instead of the default branch.
+4. Before the first push or PR creation, perform a thorough local multi-angle
    review using `agent-pr-review` methodology, run `fix-all` on every validated
    finding, and rerun relevant tests until clean.
-4. Create a draft PR assigned to `@me`, apply appropriate issue labels, include
-   `Closes #<issue>`, complete CI and Bugbot, never merge, and never add AI
+5. Create a draft PR assigned to `@me`, apply appropriate issue labels, include
+   `Closes #<issue>`, complete CI and Bugbot, squash iterative cleanup commits
+   during the final `work-issue` history pass, never merge, and never add AI
    attribution.
 
 `agent-pr-review` itself requires a remote PR and posts a pending review, so the
@@ -102,8 +140,9 @@ pre-push gate uses its methodology locally rather than its posting step.
 
 ## Report
 
-Report each successful launch and failure, plus any normalization Agent Deck
-applied to branch/worktree names. Give the scoped-view command:
+Report each successful launch and failure, each root-to-child stack order and
+base branch, plus any normalization Agent Deck applied to branch/worktree
+names. Give the scoped-view command:
 
 ```bash
 agent-deck -g <group>

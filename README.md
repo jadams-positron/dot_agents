@@ -43,8 +43,8 @@ over with `cutover-strangler-runbook`.
 | `file-issue` | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
 | `investigate-performance` | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
 | `reconcile-issues` | Audit a set of GitHub issues (epic children, a title prefix, a label) against the codebase — which shipped, which are superseded, which need re-scoping — then execute the closes, consolidations, epic rewrite, and native sub-issue sync on approval. |
-| `work-gh-issues` | Discover a recent repository and its actionable issues, then fan them out into independent Agent Deck Codex sessions with isolated worktrees and shared quality gates. |
-| `work-issue` | Work a GitHub issue end to end — implement in a worktree, run the quality gates, open a draft PR, drive CI to green, and resolve Bugbot findings. |
+| `work-gh-issues` | Discover actionable issues, map interdependencies into GitHub PR stacks, and fan them out into isolated Agent Deck Codex sessions with shared quality gates. |
+| `work-issue` | Work a GitHub issue end to end — implement in a worktree, run the quality gates, open a stack-aware draft PR, squash iterative history, drive CI to green, and resolve Bugbot findings. |
 
 ## Syncing
 
