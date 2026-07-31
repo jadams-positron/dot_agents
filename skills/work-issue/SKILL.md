@@ -118,7 +118,10 @@ test "$pre_cleanup_tree" = "$(git rev-parse 'HEAD^{tree}')"
 ```
 
 The tree-OID equality is mandatory: history cleanup must not change content.
-Run the complete local gate chain after the rewrite, then push it with:
+Run the complete local gate chain after the rewrite. If it finds anything,
+apply the fix and use `git commit --amend --no-edit`; never add another commit.
+Require a clean worktree and re-check that the base is an ancestor and the
+issue-commit count is exactly one. Then push it with:
 
 ```bash
 git push --force-with-lease origin "HEAD:$branch"
