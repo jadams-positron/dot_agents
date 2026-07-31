@@ -1,4 +1,4 @@
 interface:
   display_name: "Work GitHub Issues"
-  short_description: "Fan out GitHub issues through Agent Deck"
-  default_prompt: "Use $work-gh-issues to launch Agent Deck workers for GitHub issues."
+  short_description: "Discover and fan out GitHub issue workers"
+  default_prompt: "Use $work-gh-issues to choose a repository, find actionable issues, and launch Agent Deck workers."
