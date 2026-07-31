@@ -1,0 +1,4 @@
+interface:
+  display_name: "Work GitHub Issues"
+  short_description: "Fan out GitHub issues through Agent Deck"
+  default_prompt: "Use $work-gh-issues to launch Agent Deck workers for GitHub issues."
