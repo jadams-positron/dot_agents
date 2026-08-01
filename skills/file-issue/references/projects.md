@@ -28,6 +28,26 @@ gh project item-add <project-number> \
   --url https://github.com/positron-ai/<repo>/issues/<n>
 ```
 
+## Project-field hygiene
+
+Always inspect live fields and options before setting them:
+
+```bash
+gh project field-list <project-number> --owner positron-ai --format json
+gh project item-list <project-number> --owner positron-ai --limit 1000 --format json
+```
+
+For MCC, explicitly decide `Status`, `Priority`, and `Size`. Set a natively blocked issue to `Blocked`; use `Ready` only when no prerequisite prevents work from starting. Leave estimates and dates empty unless the user or an existing plan supplies them.
+
+Use native dependencies rather than prose-only links:
+
+```bash
+gh issue edit <issue-number-or-url> --add-blocked-by <issue-number-or-url>
+gh issue edit <issue-number-or-url> --add-blocking <issue-number-or-url>
+```
+
+Use full URLs for cross-repository relationships. Reserve dependencies for strict prerequisites; related work belongs in the issue's Links section without a blocking edge.
+
 ## Listing items already in a project
 
 ```bash

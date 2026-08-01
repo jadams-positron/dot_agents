@@ -1,13 +1,13 @@
 ---
 name: file-issue
-description: This skill should be used when the user wants to file one or more GitHub issues against a Positron repository and add them to a GitHub Project at the positron-ai org level. Triggered by phrases like "open an issue", "file a ticket", "create some tickets for X", or "add this to the MCC project". Handles single issues and small batches.
+description: Create one or more GitHub issues in a Positron repository, add them to an org-level GitHub Project, and complete post-create hygiene such as labels, project status/priority/size, native dependencies, and parent/sub-issue relationships. Trigger on requests like "open an issue", "file a ticket", "create some tickets for X", "add this to the MCC project", or cleanup of issues just created with this workflow. Handles single issues and small batches.
 ---
 
 # File Issue
 
 ## Overview
 
-File GitHub issues against repos in the `positron-ai` org and add each one to an org-level GitHub Project (e.g. the MCC project) in a single workflow.
+File GitHub issues against repos in the `positron-ai` org, add each one to an org-level GitHub Project, and leave each issue with complete, verified hygiene.
 
 ## When to use
 
@@ -18,7 +18,7 @@ Trigger on requests like:
 - "Make a few tickets and add them to the MCC project"
 - "Create an issue in `<repo>` for ..."
 
-Do not trigger for issue *triage* (commenting, closing, labeling existing issues) — only for creating new ones.
+Do not trigger for general backlog triage. Post-create hygiene for issues filed by this workflow is in scope.
 
 ## Prerequisites
 
@@ -47,8 +47,10 @@ Ask for any of these the user has not already provided. Batch the questions in a
 | Parent epic | optional | If the issue is a subtask of an epic, attach it as a **native sub-issue** (pass `--parent <epic-number>` to the script). A checklist line in the epic body is not a sub-issue relationship. |
 | Title | yes | Short, imperative. Use the user's own words; do not invent. |
 | Body | optional | Draft from the user's description using the template in [references/issue-template.md](references/issue-template.md). Confirm with the user before filing. |
-| Labels | optional | Only if the user specifies them. Do not invent labels — `gh` fails on labels that do not exist in the target repo. |
+| Labels | yes, decide | Inspect `gh label list` and apply the smallest useful existing set. Do not silently invent repository-specific labels. When the user explicitly asks for hygiene, a missing org-standard label may be created using the name, description, and color from a peer Positron repository. |
 | Assignees | optional | Only if specified. |
+| Status / priority / size | yes, decide | Inspect the live project fields and set every exposed field that has a defensible value. Blocked issues must use the project's `Blocked` status. Leave assignee, milestone, estimate, and dates empty when ownership or scheduling was not provided. |
+| Dependencies | optional | Use native `blocked by` / `blocking` relationships only for strict prerequisites. Use issue URLs for cross-repository dependencies. |
 
 For a *batch* of tickets, collect short descriptions for all of them up front, then draft titles + bodies together and show the user the full list before filing anything.
 
@@ -74,19 +76,30 @@ scripts/file_issue.sh \
   --project <project-number> \
   --title "<title>" \
   --body-file /tmp/issue-body.md \
+  --status Ready \
+  --priority P1 \
+  --size M \
+  [--blocked-by <issue-number-or-url>]... \
+  [--blocking <issue-number-or-url>]... \
   [--parent <epic-issue-number>]
 ```
 
-The script runs `gh issue create`, captures the resulting issue URL, runs `gh project item-add` to attach it to the project, and — when `--parent` is given — attaches it to the epic as a native GitHub sub-issue. It prints the issue URL on success.
+The script creates the issue, then calls `issue_hygiene.sh` to add it to the project, set project fields, apply labels and native dependencies, attach a parent when requested, and verify the result. It prints the issue URL on success.
 
-To attach an *existing* issue as a sub-issue (the API wants the child's numeric database id, not the node ID):
+For an issue that was already created by the workflow, run the hygiene script directly:
 
 ```bash
-id=$(gh api repos/<owner/repo>/issues/<child> --jq .id)
-gh api -X POST repos/<owner/repo>/issues/<parent>/sub_issues -F sub_issue_id=$id
+scripts/issue_hygiene.sh \
+  --issue-url https://github.com/positron-ai/<repo>/issues/<n> \
+  --project <project-number> \
+  --label security \
+  --status Blocked \
+  --priority P1 \
+  --size L \
+  --blocked-by https://github.com/positron-ai/<repo>/issues/<dependency>
 ```
 
-For a batch, call the script once per issue, sequentially. After all are filed, report the URLs back to the user as a list.
+For a batch, call the scripts once per issue, sequentially. Do not mark an item `Blocked` without a native dependency (or an explicit external blocker documented in the issue), and do not leave a natively blocked issue in `Ready`.
 
 ### 4. Body content
 
@@ -99,8 +112,26 @@ Default body sections (see [references/issue-template.md](references/issue-templ
 
 Skip sections that do not apply. Keep bodies short — issues should fit on one screen.
 
+### 5. Verify hygiene
+
+Inspect every created issue before reporting completion:
+
+```bash
+gh issue view <issue-url> \
+  --json labels,assignees,milestone,parent,subIssues,blockedBy,blocking,projectItems
+```
+
+Confirm:
+
+- labels exist in the target repository and match the work;
+- project membership, status, priority, and size resolved;
+- native dependency direction is correct and project status agrees;
+- parent/sub-issue relationships are native, not body checklists;
+- unassigned, unscheduled, or milestone-free fields are intentional rather than forgotten.
+
 ## Resources
 
-- [`scripts/file_issue.sh`](scripts/file_issue.sh) — creates an issue, adds it to a project, and optionally attaches it to a parent epic as a native sub-issue, in one call
+- [`scripts/file_issue.sh`](scripts/file_issue.sh) — creates an issue and delegates project/dependency hygiene
+- [`scripts/issue_hygiene.sh`](scripts/issue_hygiene.sh) — applies and verifies labels, project fields, dependencies, and parent relationships for a new or existing issue
 - [`references/projects.md`](references/projects.md) — how to look up org-level projects
 - [`references/issue-template.md`](references/issue-template.md) — default issue body template

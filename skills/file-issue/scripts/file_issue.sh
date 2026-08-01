@@ -5,11 +5,12 @@
 #   file_issue.sh --repo <owner/repo> --project <project-number> \
 #                 --title <title> --body-file <path> \
 #                 [--label <label>]... [--assignee <user>]... \
-#                 [--owner <project-owner>] [--parent <epic-issue-number>]
+#                 [--owner <project-owner>] [--parent <epic-issue-number-or-url>] \
+#                 [--status <status>] [--priority <priority>] [--size <size>] \
+#                 [--blocked-by <issue-number-or-url>]... \
+#                 [--blocking <issue-number-or-url>]...
 #
 # Defaults: --owner positron-ai
-# --parent attaches the new issue to the given epic as a native GitHub sub-issue.
-#
 # Prints the created issue URL on stdout. Exits non-zero if any step fails.
 
 set -euo pipefail
@@ -20,8 +21,13 @@ TITLE=""
 BODY_FILE=""
 OWNER="positron-ai"
 PARENT=""
+STATUS=""
+PRIORITY=""
+SIZE=""
 LABELS=()
 ASSIGNEES=()
+BLOCKED_BY=()
+BLOCKING=()
 
 usage() {
   sed -n '2,13p' "$0" >&2
@@ -36,6 +42,11 @@ while [[ $# -gt 0 ]]; do
     --body-file) BODY_FILE="$2"; shift 2 ;;
     --owner) OWNER="$2"; shift 2 ;;
     --parent) PARENT="$2"; shift 2 ;;
+    --status) STATUS="$2"; shift 2 ;;
+    --priority) PRIORITY="$2"; shift 2 ;;
+    --size) SIZE="$2"; shift 2 ;;
+    --blocked-by) BLOCKED_BY+=("$2"); shift 2 ;;
+    --blocking) BLOCKING+=("$2"); shift 2 ;;
     --label) LABELS+=("$2"); shift 2 ;;
     --assignee) ASSIGNEES+=("$2"); shift 2 ;;
     -h|--help) usage ;;
@@ -50,7 +61,6 @@ done
 [[ ! -f "$BODY_FILE" ]] && { echo "error: body file not found: $BODY_FILE" >&2; exit 2; }
 
 create_args=(--repo "$REPO" --title "$TITLE" --body-file "$BODY_FILE")
-for l in "${LABELS[@]}"; do create_args+=(--label "$l"); done
 for a in "${ASSIGNEES[@]}"; do create_args+=(--assignee "$a"); done
 
 ISSUE_URL="$(gh issue create "${create_args[@]}")"
@@ -61,13 +71,20 @@ if [[ -z "$ISSUE_URL" || "$ISSUE_URL" != https://github.com/* ]]; then
   exit 1
 fi
 
-gh project item-add "$PROJECT" --owner "$OWNER" --url "$ISSUE_URL" >/dev/null
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+hygiene_args=(
+  --issue-url "$ISSUE_URL"
+  --project "$PROJECT"
+  --owner "$OWNER"
+)
+[[ -n "$PARENT" ]] && hygiene_args+=(--parent "$PARENT")
+[[ -n "$STATUS" ]] && hygiene_args+=(--status "$STATUS")
+[[ -n "$PRIORITY" ]] && hygiene_args+=(--priority "$PRIORITY")
+[[ -n "$SIZE" ]] && hygiene_args+=(--size "$SIZE")
+for l in "${LABELS[@]}"; do hygiene_args+=(--label "$l"); done
+for dependency in "${BLOCKED_BY[@]}"; do hygiene_args+=(--blocked-by "$dependency"); done
+for dependent in "${BLOCKING[@]}"; do hygiene_args+=(--blocking "$dependent"); done
 
-if [[ -n "$PARENT" ]]; then
-  ISSUE_NUM="${ISSUE_URL##*/}"
-  # sub_issues wants the child's numeric database id, not the GraphQL node ID
-  SUB_ID="$(gh api "repos/$REPO/issues/$ISSUE_NUM" --jq .id)"
-  gh api -X POST "repos/$REPO/issues/$PARENT/sub_issues" -F sub_issue_id="$SUB_ID" >/dev/null
-fi
+"$SCRIPT_DIR/issue_hygiene.sh" "${hygiene_args[@]}" >/dev/null
 
 echo "$ISSUE_URL"
