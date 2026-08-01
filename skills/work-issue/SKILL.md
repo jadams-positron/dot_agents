@@ -14,6 +14,12 @@ iterate CI to green, collapse iterative commits into one clean issue commit,
 flip to ready, and drain Bugbot findings without re-growing the history. The
 human merges; this skill never does.
 
+The default is standalone mode. When `work-gh-issues` designates the current
+session as the sole owner of an ordered native `gh stack`, run this skill once
+per issue in local stack-member mode: implement, verify, and leave one signed
+commit, then return to the stack owner without pushing or creating a PR. The
+owner alone submits, synchronizes, and updates the chain.
+
 ## Authorization
 
 Invoking this skill is explicit approval to commit, push with an explicit
@@ -22,6 +28,20 @@ issue branch only. It also approves rebasing and `--force-with-lease` with an
 explicit issue-branch refspec when tracking a stack parent and during the final
 history cleanup below. It is NOT approval to merge, force-push a base or
 protected branch, delete work, or commit in any other checkout or repo.
+
+## Stack ownership
+
+Before changing history or pushing, determine whether the current PR or branch
+has an open descendant (`gh pr list --state open --base <branch>`) or belongs to
+a native stack. If it does, require an explicit sole stack owner and the full
+bottom-to-tip branch order. A per-issue worker is never that owner merely
+because it owns one branch.
+
+Only the stack owner may run `gh stack rebase`, `gh stack submit`, or
+`gh stack sync`. Every other stack member stops after its local signed commit
+and reports its branch, parent, commit SHA, tree SHA, and verification evidence.
+If a remote stack branch moves unexpectedly, do not overwrite it: report the
+expected and observed SHAs to the owner.
 
 ## Workflow
 
@@ -47,9 +67,12 @@ path into another checkout).
 Resolve the intended PR base before editing. An explicit orchestrator-provided
 stack base wins; otherwise use the existing PR's `baseRefName`, the current
 branch's `gh-merge-base`, or finally the repository default branch. For a stack
-child, wait for the parent branch to exist on `origin`, fetch it, rebase onto
-it, and set `branch.<current>.gh-merge-base` to that exact branch. Never quietly
-flatten a child onto the default branch while its parent PR is open.
+child outside the native stack-owner workflow, wait for the parent branch to
+exist on `origin`, fetch it, rebase onto it, and set
+`branch.<current>.gh-merge-base` to that exact branch. Never quietly flatten a
+child onto the default branch while its parent PR is open. Inside the
+stack-owner workflow, reuse its one worktree and let `gh stack add` establish
+the child branch and parent; do not create another worktree.
 
 ### 3. Implement exactly the scope
 
@@ -59,6 +82,10 @@ call materially expands or shrinks scope (e.g. a "related" cleanup with a
 hidden trade-off), prefer the literal issue scope and surface the call in the
 PR body. Run the issue's own acceptance checks (greps, commands it names).
 Update the changelog per project convention when the change is user-visible.
+In a stack, put only this issue's changelog entry in this issue's commit. Treat
+shared changelog structure as stack-owner integration scope and validate it
+after every rebase; absence of conflict markers does not prove semantic
+correctness.
 
 ### 4. Gate chain — all before any push
 
@@ -72,10 +99,16 @@ Run in order; each gate acts on the previous one's findings:
    creep counts as a fix.
 4. `wiggum` — loop until the Definition of Done holds: commit, then dispatch a
    SEPARATE fess subagent to audit the commit (never self-grade), fold real
-   findings back in, keep the branch rebased on its resolved base. Bounded attempts
-   (default 3) per failing gate, then escalate.
+   findings back in, and keep a standalone branch rebased on its resolved base.
+   A stack member does not independently rebase; the stack owner performs the
+   cascading rebase. Bounded attempts (default 3) per failing gate, then
+   escalate.
 
 ### 5. Ship the draft PR
+
+In local stack-member mode, stop here and return the signed single-commit
+handoff to the stack owner. The remaining steps are performed by the owner for
+the whole chain using `gh stack submit --auto` and `gh stack sync`.
 
 Commit with why-focused messages during development (no AI attribution, ever).
 Push with an explicit refspec: `git push -u origin HEAD:<branch>`. Then:
@@ -121,10 +154,14 @@ The tree-OID equality is mandatory: history cleanup must not change content.
 Run the complete local gate chain after the rewrite. If it finds anything,
 apply the fix and use `git commit --amend --no-edit`; never add another commit.
 Require a clean worktree and re-check that the base is an ancestor and the
-issue-commit count is exactly one. Then push it with:
+issue-commit count is exactly one. Recheck for open descendants before pushing;
+if any exist, hand the branch to its stack owner instead. Otherwise capture the
+remote SHA and push with an exact lease:
 
 ```bash
-git push --force-with-lease origin "HEAD:$branch"
+expected=$(git rev-parse "refs/remotes/origin/$branch")
+git push --force-with-lease="refs/heads/$branch:$expected" \
+  origin "HEAD:refs/heads/$branch"
 ```
 
 If the branch has no issue commits above the base, stop instead of creating an
@@ -145,14 +182,19 @@ comment in-thread with what was done (or why it's a false positive) and
 resolve the thread — never a top-level summary comment. After the history has
 been cleaned, fold every real fix into the single issue commit with
 `git commit --amend --no-edit`, rerun local gates, and push with the same
-explicit `--force-with-lease` refspec. Do not append `fix: a`, `fix: b`, or
-similar commits. Repeat CI and Bugbot until both are clean on the latest SHA.
+exact expected-SHA lease. Do not append `fix: a`, `fix: b`, or similar commits.
+Repeat CI and Bugbot until both are clean on the latest SHA.
 
 Before handoff, fetch the current PR base and verify it is an ancestor of HEAD.
 If it moved, rebase, re-squash/amend, and repeat the local/remote gates. Verify
 that `git rev-list --count origin/<base>..HEAD` is exactly `1`. Report the PR
 URL, state, stack parent/base when applicable, final SHA, and any open judgment
 calls. Do not merge.
+
+For a stack owner, a fix or parent-base movement invalidates every descendant
+SHA. Amend the owning issue branch, run `gh stack rebase --upstack`, then
+`gh stack sync`; refresh the stack manifest and rerun affected checks
+bottom-to-tip. Never repair or force-push only the changed parent branch.
 
 ## Escalation
 
@@ -161,4 +203,6 @@ times without progress; the issue scope turns out ambiguous or wrong against
 the code; a rebase conflict can't be resolved without guessing intent; or any
 action would delete work or rewrite anything outside the issue branch. A
 scoped rebase/history cleanup and explicit issue-branch `--force-with-lease`
-are part of this workflow, not escalation conditions.
+are part of the standalone workflow, not escalation conditions. Unexpected
+remote movement, missing stack ownership, or a checked-out stack branch in a
+second worktree are also escalation conditions.

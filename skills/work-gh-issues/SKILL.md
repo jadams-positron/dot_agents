@@ -1,6 +1,6 @@
 ---
 name: work-gh-issues
-description: Discover and fan out actionable GitHub issues into isolated Agent Deck Codex sessions, grouping interdependent work into native GitHub pull-request stacks and applying shared end-to-end quality gates. Use when the user asks to batch, start, launch, work, or orchestrate GitHub issues through Agent Deck, or invokes /work-gh-issues. Resolve a missing repository by offering the five most recently used repositories, and resolve missing issue numbers by listing open, non-blocked, not-already-claimed issues from the selected repository.
+description: Discover and fan out actionable GitHub issues into isolated Agent Deck Codex sessions, assigning one owner to each independent issue or native GitHub pull-request stack and applying shared end-to-end quality gates. Use when the user asks to batch, start, launch, work, or orchestrate GitHub issues through Agent Deck, or invokes /work-gh-issues. Resolve a missing repository by offering the five most recently used repositories, and resolve missing issue numbers by listing open, non-blocked, not-already-claimed issues from the selected repository.
 ---
 
 # Work GitHub Issues
@@ -77,13 +77,21 @@ artifacts. Build a dependency graph from evidence, not title similarity:
 A PR can have only one immediate base. Convert each connected component into a
 reviewable topological chain. Preserve true prerequisite order; serialize
 otherwise-independent siblings only when their expected overlap makes that
-worthwhile. Detect cycles and ask the human instead of inventing an order.
+worthwhile. Detect cycles or branching chains and ask the human instead of
+inventing an order.
 
-GitHub recognizes a chain of ordinary PR base/head branches as a pull-request
-stack and exposes it through GraphQL `PullRequest.stack` and `stackEntry`.
-Current `gh` does not have a separate stack-creation command: create the root
-against the default branch, and create each child against the immediately
-preceding issue branch.
+Treat repository-wide files such as `CHANGELOG.md`, lockfiles, generated
+artifacts, migration registries, and release metadata as explicit write-set
+hotspots. If selected issues must all edit one, place them under one stack owner
+or designate that owner to make the shared-file edits. After every rebase, also
+validate the file's semantic structure; a merge driver can hide duplicate or
+misordered entries without producing conflict markers.
+
+Use native `gh stack` commands. One Agent Deck session and worktree owns each
+entire chain; never launch one concurrent writer per stack member. Independent
+chains still run in parallel. This ownership rule is required because local
+worktrees isolate files, not branch history or remote refs, and `gh stack`
+cannot adopt a branch checked out in another worktree.
 
 ## Launch workers
 
@@ -96,9 +104,10 @@ python3 <skill-dir>/scripts/launch.py \
 ```
 
 Example: `--depends-on 22:21 --depends-on 23:22` creates a three-PR stack.
-The launcher topologically orders the sessions, resolves Agent Deck's actual
-possibly-prefixed parent branch after each launch, and gives that exact base to
-the child worker. Independent roots still run independently.
+The launcher validates and topologically orders each chain, then creates one
+session for each chain. The root issue supplies the Agent Deck branch and
+worktree name; the stack owner derives child branch names from the actual,
+possibly-prefixed root branch. Independent roots and chains run independently.
 
 Defaults:
 
@@ -117,32 +126,47 @@ The launcher validates the checkout and collisions before creating anything,
 de-duplicates issue numbers, locks titles, and continues past an individual
 launch failure.
 
-## Worker contract
+## Worker and stack-owner contract
 
-Each worker receives instructions to:
+A singleton worker runs `work-issue` end to end in the Agent Deck-created
+worktree and branch.
 
-1. Run `work-issue` end to end for `OWNER/REPO#<issue>`.
-2. Reuse the current Agent Deck-created worktree and branch; never create a
-   nested worktree or rename the branch.
-3. For a stack child, wait for the parent branch, rebase onto it before editing,
-   keep it as the branch's `gh-merge-base`, and create the PR with that exact
-   `--base` instead of the default branch.
-4. Before the first push or PR creation, perform a thorough local multi-angle
-   review using `agent-pr-review` methodology, run `fix-all` on every validated
-   finding, and rerun relevant tests until clean.
-5. Create a draft PR assigned to `@me`, apply appropriate issue labels, include
-   `Closes #<issue>`, complete CI and Bugbot, squash iterative cleanup commits
-   during the final `work-issue` history pass, never merge, and never add AI
-   attribution.
+A multi-issue worker is the sole writer and integrator for the entire chain. It:
+
+1. Reuses the Agent Deck worktree and actual root branch; it creates no sibling
+   worktrees and launches no per-issue writers.
+2. Runs `gh stack init --base <default> <actual-root-branch>`, then processes
+   issues bottom-to-tip. For each child it uses `gh stack add <child-branch>` and
+   runs `work-issue` in stack-member mode: implement, test, audit, and leave one
+   signed issue commit without pushing or creating a PR independently.
+3. Runs the local multi-angle review and `fix-all` gates before the first
+   submission, then uses `gh stack rebase` and `gh stack submit --auto` to push
+   the complete chain and create draft PRs. It corrects every PR's title, body,
+   assignee, labels, and `Closes #<issue>` metadata after submission.
+4. Records a manifest containing ordered issues, branches, PRs, bases, expected
+   remote SHAs, worktree, and the sole owner. It verifies GitHub's PR bases match
+   the chain and that every expected PR is linked to the native stack.
+5. Freezes edits while synchronizing. A parent amendment is followed by
+   `gh stack rebase --upstack` and `gh stack sync`, which cascade-rebases and
+   atomically pushes the chain with leases. It then refreshes expected SHAs and
+   rechecks every descendant's mergeability and checks.
+6. Handles CI and Bugbot bottom-to-tip. Every real fix is amended into that
+   issue's single commit, followed by another whole-stack rebase and sync. No
+   PR becomes ready until the latest SHA of every affected descendant is green.
+7. Never merges and never adds AI attribution.
+
+If a worker discovers that another session or checkout moved a stack branch,
+it stops before pushing, records the observed and expected SHAs, and hands the
+stack back to its owner. It never repairs a shared stack one branch at a time.
 
 `agent-pr-review` itself requires a remote PR and posts a pending review, so the
 pre-push gate uses its methodology locally rather than its posting step.
 
 ## Report
 
-Report each successful launch and failure, each root-to-child stack order and
-base branch, plus any normalization Agent Deck applied to branch/worktree
-names. Give the scoped-view command:
+Report each successful launch and failure, the sole owner for every root-to-tip
+stack, its default base, plus any normalization Agent Deck applied to the root
+branch/worktree name. Give the scoped-view command:
 
 ```bash
 agent-deck -g <group>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch one isolated Agent Deck Codex worker per GitHub issue."""
+"""Launch one isolated Agent Deck Codex owner per issue or PR stack."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from discover import issue_numbers, repository_for_path
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Launch GitHub issues as independent Agent Deck workers."
+        description="Launch GitHub issues as independent Agent Deck stack owners."
     )
     parser.add_argument(
         "issues",
@@ -157,6 +157,30 @@ def topological_order(issues: list[int], dependencies: dict[int, int]) -> list[i
     return ordered
 
 
+def stack_chains(issues: list[int], dependencies: dict[int, int]) -> list[list[int]]:
+    """Return bottom-to-tip linear chains in stable root order."""
+    ordered = topological_order(issues, dependencies)
+    child_by_parent: dict[int, int] = {}
+    for child, parent in dependencies.items():
+        previous = child_by_parent.get(parent)
+        if previous is not None:
+            raise ValueError(
+                f"issue #{parent} has multiple immediate children "
+                f"(#{previous} and #{child}); linearize the stack"
+            )
+        child_by_parent[parent] = child
+
+    chains: list[list[int]] = []
+    for root in ordered:
+        if root in dependencies:
+            continue
+        chain = [root]
+        while chain[-1] in child_by_parent:
+            chain.append(child_by_parent[chain[-1]])
+        chains.append(chain)
+    return chains
+
+
 def repository_default_branch(repository: str) -> str:
     result = subprocess.run(
         [
@@ -182,26 +206,33 @@ def repository_default_branch(repository: str) -> str:
 
 def worker_prompt(
     repository: str,
-    issue: int,
+    issues: list[int],
     base_branch: str,
-    parent_issue: int | None = None,
 ) -> str:
-    if parent_issue is None:
-        stack_contract = f"""This is a stack root. Its PR base is the repository default branch `{base_branch}`. Use that exact branch for rebases and `gh pr create --base`."""
-    else:
-        stack_contract = f"""This issue is immediately dependent on issue #{parent_issue}. Its PR must be stacked on the parent worker's branch `{base_branch}`, not on the default branch.
-
-Before editing, wait until `origin/{base_branch}` exists, fetch it, and rebase the current issue branch onto it. Configure the current branch's `gh-merge-base` to `{base_branch}`. Keep rebasing onto that branch as the parent changes. Create the draft PR with `--base {base_branch}` and mention the parent issue and base branch in the PR body. Never retarget this PR to the default branch while the parent PR is open."""
-
-    return f"""Run the work-issue skill end to end for GitHub issue {repository}#{issue}.
+    issue_refs = ", ".join(f"#{issue}" for issue in issues)
+    root_issue = issues[0]
+    if len(issues) == 1:
+        return f"""Run the work-issue skill end to end for GitHub issue {repository}#{root_issue}.
 
 Agent Deck has already created an isolated worktree and branch for this issue. Treat the current worktree and branch names as authoritative; Agent Deck may apply its configured branch prefix. Use them for work-issue's isolation step. Do not create another worktree and do not rename the branch.
 
-{stack_contract}
+This is an independent issue rooted on `{base_branch}`. Use that exact branch for rebases and `gh pr create --base`.
 
 Before any upstream push or PR creation, perform a thorough multi-angle review of the complete local diff using the agent-pr-review methodology, but do not post a GitHub review. Run fix-all on every validated finding, rerun all relevant tests, and repeat until clean. Then continue the work-issue workflow.
 
-Create the PR as a draft, assign it to @me, apply the appropriate labels from issue #{issue}, include Closes #{issue}, complete the CI and Bugbot workflow, never merge, and never add AI attribution."""
+Create the PR as a draft, assign it to @me, apply the appropriate labels from issue #{root_issue}, include Closes #{root_issue}, complete the CI and Bugbot workflow, never merge, and never add AI attribution."""
+
+    return f"""Act as the sole writer and native GitHub stack integrator for {repository} issues {issue_refs}, ordered bottom-to-tip. No other worker owns any branch in this chain.
+
+Agent Deck has created one isolated worktree and the root branch for issue #{root_issue}. Treat the current worktree and branch as authoritative; Agent Deck may have added a prefix. Do not create another worktree, launch per-issue workers, or let another checkout hold a stack branch.
+
+Read and follow the work-gh-issues stack-owner contract and work-issue stack-member mode. Initialize the current root branch with `gh stack init --base {base_branch} <actual-root-branch>`. Process issues in this exact order: {issue_refs}. For each child, derive its branch by preserving the root branch's prefix and replacing the final `work#{root_issue}` with `work#<child>`, then create it with `gh stack add <child-branch>`.
+
+For each issue, run work-issue locally through its gate chain and leave exactly one signed, why-focused commit. Do not push or create that issue's PR independently. Keep only that issue's user-visible changelog entry in its commit.
+
+After all branches pass their local gates, run the local multi-angle review and fix-all workflow across the complete stack. Then run `gh stack rebase` and `gh stack submit --auto`. Correct every draft PR's title, body, assignee, labels, `Closes #<issue>`, and immediate base. Record the ordered branches, PRs, bases, worktree, owner, and expected remote SHAs.
+
+Handle CI and Bugbot bottom-to-tip. Amend fixes into the owning issue commit, run `gh stack rebase --upstack`, and use `gh stack sync` to atomically update the chain. Recheck every affected descendant on its new SHA. Never repair or push one parent branch in isolation, never merge, and never add AI attribution."""
 
 
 def launch_command(
@@ -209,11 +240,10 @@ def launch_command(
     repository: str,
     group: str,
     model: str,
-    issue: int,
+    issues: list[int],
     base_branch: str,
-    parent_issue: int | None,
 ) -> list[str]:
-    name = f"work#{issue}"
+    name = f"work#{issues[0]}"
     return [
         "agent-deck",
         "launch",
@@ -233,7 +263,7 @@ def launch_command(
         "--location",
         "subdirectory",
         "--message",
-        worker_prompt(repository, issue, base_branch, parent_issue),
+        worker_prompt(repository, issues, base_branch),
         "--json",
     ]
 
@@ -349,7 +379,7 @@ def main() -> int:
         repository = found[0]
         group = args.group or repo.name
         dependencies = parse_dependencies(args.depends_on, issues)
-        issues = topological_order(issues, dependencies)
+        chains = stack_chains(issues, dependencies)
         default_branch = repository_default_branch(repository)
         check_collisions(repo, repository, issues)
     except (TypeError, ValueError) as exc:
@@ -357,49 +387,36 @@ def main() -> int:
         return 2
 
     failures: list[int] = []
-    branches: dict[int, str] = {}
-    for issue in issues:
-        parent_issue = dependencies.get(issue)
-        if parent_issue is not None and parent_issue not in branches:
-            print(
-                f"Skipping issue #{issue}: parent issue #{parent_issue} did not launch.",
-                file=sys.stderr,
-            )
-            failures.append(issue)
-            continue
-        base_branch = (
-            branches[parent_issue] if parent_issue is not None else default_branch
-        )
+    for chain in chains:
+        root_issue = chain[0]
         command = launch_command(
             repo,
             repository,
             group,
             args.model,
-            issue,
-            base_branch,
-            parent_issue,
+            chain,
+            default_branch,
         )
         if args.dry_run:
             print(shlex.join(command))
-            branches[issue] = f"<actual branch for work#{issue}>"
             continue
 
-        print(f"Launching issue #{issue} as work#{issue}...", flush=True)
+        issue_refs = " -> ".join(f"#{issue}" for issue in chain)
+        print(f"Launching {issue_refs} as work#{root_issue}...", flush=True)
         result = subprocess.run(command, check=False)
         if result.returncode != 0:
-            failures.append(issue)
+            failures.extend(chain)
             continue
         try:
-            branches[issue] = launched_branch(repository, issue)
-            relationship = (
-                f"stacked on #{parent_issue} ({base_branch})"
-                if parent_issue is not None
-                else f"rooted on {base_branch}"
+            branch = launched_branch(repository, root_issue)
+            kind = "stack" if len(chain) > 1 else "issue"
+            print(
+                f"{kind.title()} {issue_refs}: owner work#{root_issue} "
+                f"({branch}) -> rooted on {default_branch}"
             )
-            print(f"Issue #{issue}: {branches[issue]} -> {relationship}")
         except (TypeError, ValueError) as exc:
             print(f"error: {exc}", file=sys.stderr)
-            failures.append(issue)
+            failures.extend(chain)
 
     if failures:
         print(
@@ -409,7 +426,10 @@ def main() -> int:
         return 1
 
     action = "Prepared" if args.dry_run else "Launched"
-    print(f"{action} {len(issues)} issue worker(s) in group {group}.")
+    print(
+        f"{action} {len(chains)} owner session(s) for {len(issues)} issue(s) "
+        f"in group {group}."
+    )
     return 0
 
 

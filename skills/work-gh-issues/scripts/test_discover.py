@@ -12,7 +12,7 @@ from discover import (
     open_blockers,
     parse_repository,
 )
-from launch import parse_dependencies, topological_order, worker_prompt
+from launch import parse_dependencies, stack_chains, topological_order, worker_prompt
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -47,17 +47,19 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIsNone(BLOCKED_LABEL.search("enhancement"))
 
     def test_worker_prompt_uses_current_branch_as_authoritative(self) -> None:
-        prompt = worker_prompt("owner/repo", 42, "main")
+        prompt = worker_prompt("owner/repo", [42], "main")
         self.assertIn("owner/repo#42", prompt)
         self.assertIn("current worktree and branch names as authoritative", prompt)
-        self.assertIn("stack root", prompt)
+        self.assertIn("independent issue", prompt)
         self.assertNotIn("branch named work#42", prompt)
 
-    def test_worker_prompt_pins_stacked_pr_to_parent_branch(self) -> None:
-        prompt = worker_prompt("owner/repo", 43, "feature/work#42", 42)
-        self.assertIn("immediately dependent on issue #42", prompt)
-        self.assertIn("--base feature/work#42", prompt)
-        self.assertIn("origin/feature/work#42", prompt)
+    def test_worker_prompt_assigns_one_native_stack_owner(self) -> None:
+        prompt = worker_prompt("owner/repo", [42, 43], "main")
+        self.assertIn("sole writer and native GitHub stack integrator", prompt)
+        self.assertIn("#42, #43", prompt)
+        self.assertIn("gh stack init --base main", prompt)
+        self.assertIn("gh stack sync", prompt)
+        self.assertIn("Do not create another worktree", prompt)
 
     def test_dependencies_are_validated_and_topologically_sorted(self) -> None:
         dependencies = parse_dependencies(["#43:#42", "44:43"], [44, 42, 43, 99])
@@ -70,6 +72,16 @@ class DiscoveryTests(unittest.TestCase):
     def test_multiple_stack_parents_require_linearization(self) -> None:
         with self.assertRaisesRegex(ValueError, "multiple immediate parents"):
             parse_dependencies(["43:41", "43:42"], [41, 42, 43])
+
+    def test_stack_chains_group_dependencies_under_one_owner(self) -> None:
+        self.assertEqual(
+            stack_chains([44, 42, 43, 99], {43: 42, 44: 43}),
+            [[42, 43, 44], [99]],
+        )
+
+    def test_branching_stack_requires_linearization(self) -> None:
+        with self.assertRaisesRegex(ValueError, "multiple immediate children"):
+            stack_chains([41, 42, 43], {42: 41, 43: 41})
 
     def test_dependency_cycle_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "dependency cycle"):
