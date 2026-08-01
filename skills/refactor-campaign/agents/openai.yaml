@@ -1,0 +1,4 @@
+interface:
+  display_name: "Refactor Campaign"
+  short_description: "Audit, fan out, and integrate refactor campaigns"
+  default_prompt: "Use $refactor-campaign to run a three-pass codebase review, implement validated units in isolated worktrees, and integrate them locally."
