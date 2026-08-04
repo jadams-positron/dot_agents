@@ -140,9 +140,12 @@ A multi-issue worker is the sole writer and integrator for the entire chain. It:
    runs `work-issue` in stack-member mode: implement, test, audit, and leave one
    signed issue commit without pushing or creating a PR independently.
 3. Runs the local multi-angle review and `fix-all` gates before the first
-   submission, then uses `gh stack rebase` and `gh stack submit --auto` to push
-   the complete chain and create draft PRs. It corrects every PR's title, body,
-   assignee, labels, and `Closes #<issue>` metadata after submission.
+   submission, then invokes `pr-description` as the sole body-authoring path for
+   each PR, using that PR's immediate base-to-head diff rather than the cumulative
+   stack. It writes and validates a separate body file for every member before
+   running `gh stack rebase` and `gh stack submit --auto`. After submission it
+   applies those bodies and corrects every PR's title, assignee, labels,
+   `Closes #<issue>` metadata, and base; no body is reused across stack members.
 4. Records a manifest containing ordered issues, branches, PRs, bases, expected
    remote SHAs, worktree, and the sole owner. It verifies GitHub's PR bases match
    the chain and that every expected PR is linked to the native stack.
@@ -151,8 +154,11 @@ A multi-issue worker is the sole writer and integrator for the entire chain. It:
    atomically pushes the chain with leases. It then refreshes expected SHAs and
    rechecks every descendant's mergeability and checks.
 6. Handles CI and Bugbot bottom-to-tip. Every real fix is amended into that
-   issue's single commit, followed by another whole-stack rebase and sync. No
-   PR becomes ready until the latest SHA of every affected descendant is green.
+   issue's single commit, followed by another whole-stack rebase and sync. It
+   reruns `pr-description` for every affected PR against its final immediate
+   base and head, removes generated attribution, and validates the refreshed
+   body. No PR becomes ready until the latest SHA of every affected descendant
+   is green.
 7. Never merges and never adds AI attribution.
 
 If a worker discovers that another session or checkout moved a stack branch,

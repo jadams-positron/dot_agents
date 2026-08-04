@@ -112,8 +112,9 @@ the child branch and parent; do not create another worktree.
 Make the change the issue asks for — nothing adjacent. Park unrelated
 discoveries for a follow-up issue instead of folding them in; if a judgment
 call materially expands or shrinks scope (e.g. a "related" cleanup with a
-hidden trade-off), prefer the literal issue scope and surface the call in the
-PR body. Run the issue's own acceptance checks (greps, commands it names).
+hidden trade-off), prefer the literal issue scope and surface the call through
+the `pr-description` skill. Run the issue's own acceptance checks (greps,
+commands it names).
 Update the changelog per project convention when the change is user-visible.
 In a stack, put only this issue's changelog entry in this issue's commit. Treat
 shared changelog structure as stack-owner integration scope and validate it
@@ -144,17 +145,23 @@ handoff to the stack owner. The remaining steps are performed by the owner for
 the whole chain using `gh stack submit --auto` and `gh stack sync`.
 
 Commit with why-focused messages during development (no AI attribution, ever).
+Before the first push, invoke `pr-description` as the sole PR-body authoring
+path. Give it the issue and acceptance criteria, resolved base and head, complete
+diff, observed tests and review results, and stack context when applicable. Have
+it write a body file and validate that file with `--issue <N>` plus
+`--require-example` when the change has a meaningful usage or configuration
+surface. Do not handwrite a competing summary.
+
 Push with an explicit refspec: `git push -u origin HEAD:<branch>`. Then:
 
 ```bash
-gh pr create --draft --base <resolved-base> --title "..." --body "..." \
+gh pr create --draft --base <resolved-base> --title "..." --body-file <body-file> \
   --assignee @me --label <labels matching the issue>
 ```
 
-Body: terse — what/why in a few lines, `Closes #<N>`, and any judgment calls a
-reviewer should veto. For a stack child, also name the parent issue/PR and base
-branch. No AI attribution footers. Verify `gh pr view --json baseRefName` equals
-the resolved base; correct it with `gh pr edit --base` before continuing.
+Verify `gh pr view --json baseRefName` equals the resolved base; correct it with
+`gh pr edit --base` before continuing. Fetch the live body and verify that it
+matches the validated body file.
 
 ### 7. CI to green
 
@@ -217,6 +224,11 @@ been cleaned, fold every real fix into the single issue commit with
 `git commit --amend --no-edit`, rerun local gates, and push with the same
 exact expected-SHA lease. Do not append `fix: a`, `fix: b`, or similar commits.
 Repeat CI and Bugbot until both are clean on the latest SHA.
+
+Invoke `pr-description` again against the final base and head after CI and
+Bugbot. Refresh the live body if the implementation, test evidence, examples,
+review path, or risk changed; remove generated summaries and AI attribution;
+rerun the validator; and verify the resulting GitHub body.
 
 Before handoff, fetch the current PR base and verify it is an ancestor of HEAD.
 If it moved, rebase, re-squash/amend, and repeat the local/remote gates. Verify

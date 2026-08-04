@@ -51,6 +51,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIn("owner/repo#42", prompt)
         self.assertIn("current worktree and branch names as authoritative", prompt)
         self.assertIn("independent issue", prompt)
+        self.assertIn("pr-description skill as the sole PR-body authoring path", prompt)
         self.assertNotIn("branch named work#42", prompt)
 
     def test_worker_prompt_assigns_one_native_stack_owner(self) -> None:
@@ -60,6 +61,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIn("gh stack init --base main", prompt)
         self.assertIn("gh stack sync", prompt)
         self.assertIn("Do not create another worktree", prompt)
+        self.assertIn("pr-description as the sole body-authoring path", prompt)
 
     def test_dependencies_are_validated_and_topologically_sorted(self) -> None:
         dependencies = parse_dependencies(["#43:#42", "44:43"], [44, 42, 43, 99])

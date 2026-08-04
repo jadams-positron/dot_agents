@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Description"
+  short_description: "Draft rich, evidence-backed PR descriptions"
+  default_prompt: "Use $pr-description to draft or refresh a rich, code-grounded pull request description."

@@ -37,11 +37,11 @@ over with `cutover-strangler-runbook`.
 
 | Skill | Description |
 |---|---|
-| `cleanup-pr-description` | Rewrite a PR's description for clarity and accuracy, grounded in the actual diff, adversarially verifying every claim before updating the PR. |
 | `distill` | Iteratively simplify code, prose, and communication through at least three verified reduction passes; also structures internal docs and preserves the publishing workflow for runbooks. |
 | `document-research` | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
 | `file-issue` | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
 | `investigate-performance` | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
+| `pr-description` | Draft, validate, create, or refresh rich PR descriptions with concrete review guidance, evidence-backed summaries and tests, and usage or configuration examples when applicable. |
 | `reconcile-issues` | Audit a set of GitHub issues (epic children, a title prefix, a label) against the codebase — which shipped, which are superseded, which need re-scoping — then execute the closes, consolidations, epic rewrite, and native sub-issue sync on approval. |
 | `work-gh-issues` | Discover actionable issues, map interdependencies into GitHub PR stacks, and fan them out into isolated Agent Deck Codex sessions with shared quality gates. |
 | `work-issue` | Work a GitHub issue end to end — implement in a worktree, run the quality gates, open a stack-aware draft PR, squash iterative history, drive CI to green, and resolve Bugbot findings. |
