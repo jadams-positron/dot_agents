@@ -1,6 +1,6 @@
 ---
 name: work-issue
-description: This skill should be used when the user asks to work a GitHub issue end to end — implement it in a fresh git worktree, run the fess/fix-all/wiggum quality gates, open a draft PR, babysit CI to green, mark the PR ready, and resolve Cursor Bugbot findings until clean. Triggered by phrases like "start working #N in a worktree", "work issue #N", "take #N through the gates", or "/work-issue N". Merge is never part of the flow.
+description: This skill should be used when the user asks to work a GitHub issue end to end — claim it, assign it to @me, move it to In Progress, complete applicable issue hygiene, implement it in a fresh git worktree, run the fess/fix-all/wiggum quality gates, open a draft PR, babysit CI to green, mark the PR ready, and resolve Cursor Bugbot findings until clean. Triggered by phrases like "start working #N in a worktree", "work issue #N", "take #N through the gates", or "/work-issue N". Merge is never part of the flow.
 ---
 
 # Work Issue
@@ -8,11 +8,11 @@ description: This skill should be used when the user asks to work a GitHub issue
 ## Overview
 
 Drive one GitHub issue from number to review-ready PR: read and restate the
-scope, implement exactly that scope in an isolated worktree, pass an
-honesty-audit gate chain (`fess` → `fix-all` → `wiggum`), ship a draft PR,
-iterate CI to green, collapse iterative commits into one clean issue commit,
-flip to ready, and drain Bugbot findings without re-growing the history. The
-human merges; this skill never does.
+scope, claim the issue with complete start-work hygiene, implement exactly that
+scope in an isolated worktree, pass an honesty-audit gate chain (`fess` →
+`fix-all` → `wiggum`), ship a draft PR, iterate CI to green, collapse iterative
+commits into one clean issue commit, flip to ready, and drain Bugbot findings
+without re-growing the history. The human merges; this skill never does.
 
 The default is standalone mode. When `work-gh-issues` designates the current
 session as the sole owner of an ordered native `gh stack`, run this skill once
@@ -22,12 +22,14 @@ owner alone submits, synchronizes, and updates the chain.
 
 ## Authorization
 
-Invoking this skill is explicit approval to commit, push with an explicit
-refspec, open a draft PR, mark it ready, and resolve review threads — on the
-issue branch only. It also approves rebasing and `--force-with-lease` with an
-explicit issue-branch refspec when tracking a stack parent and during the final
-history cleanup below. It is NOT approval to merge, force-push a base or
-protected branch, delete work, or commit in any other checkout or repo.
+Invoking this skill is explicit approval to update the issue and its issue
+branch: assign it to `@me`, move its delivery-project item to `In Progress`,
+complete unambiguous hygiene, commit, push with an explicit refspec, open a
+draft PR, mark it ready, and resolve review threads. It also approves
+rebasing and `--force-with-lease` with an explicit issue-branch refspec when
+tracking a stack parent and during the final history cleanup below. It is NOT
+approval to merge, invent project metadata, force-push a base or protected
+branch, delete work, or commit in any other checkout or repo.
 
 ## Stack ownership
 
@@ -47,12 +49,43 @@ expected and observed SHAs to the owner.
 
 ### 1. Read the issue
 
-`gh issue view <N> --json title,body,labels,comments`. Restate scope and
-acceptance criteria in one short summary before touching code. If the scope is
-ambiguous or contradicts the code found later, stop and ask — do not guess a
-scope expansion.
+```bash
+gh issue view <N> \
+  --json state,title,body,labels,comments,assignees,milestone,parent,subIssues,blockedBy,blocking,projectItems
+```
 
-### 2. Isolate
+Restate scope and acceptance criteria in one short summary before touching
+code. Stop if the issue is closed or an unresolved native blocker is a strict
+prerequisite. If the scope is ambiguous or contradicts the code found later,
+stop and ask — do not guess a scope expansion.
+
+### 2. Claim and normalize issue hygiene
+
+Run this idempotent gate after accepting the scope and before creating a
+worktree or changing code.
+
+1. Assign the issue to the current GitHub user:
+   `gh issue edit <N> --add-assignee @me`.
+2. Identify the delivery project from the native parent's membership, the
+   issue's existing project items, or an explicit repository convention, in
+   that order. When several projects remain plausible, ask before choosing. Add
+   an unprojected issue only when this resolves one project unambiguously.
+   Resolve its live schema and set `Status` to the exact `In Progress` option;
+   do not update mirror or archive projects.
+3. Use the `file-issue` skill's existing-issue hygiene workflow when available;
+   otherwise apply the same checks directly. Apply the smallest useful set of
+   existing labels, removing one only when current scope or policy proves it
+   stale. Set priority, size, type, milestone, dates, native parent/sub-issue
+   links, and native dependency links only from explicit issue context,
+   relationships, or repository/project policy. Never invent metadata or
+   hardcode project, field, or option IDs.
+4. Verify the result:
+   `gh issue view <N> --json state,assignees,labels,milestone,parent,subIssues,blockedBy,blocking,projectItems`.
+   Confirm the current GitHub user is assigned, the delivery-project item is
+   `In Progress`, relationship directions are correct, and every unfilled
+   field is intentional. Include this state in the final handoff.
+
+### 3. Isolate
 
 If an orchestrator already created the current worktree and branch, reuse them
 exactly; do not create a nested worktree or rename the branch. Otherwise create
@@ -74,7 +107,7 @@ child onto the default branch while its parent PR is open. Inside the
 stack-owner workflow, reuse its one worktree and let `gh stack add` establish
 the child branch and parent; do not create another worktree.
 
-### 3. Implement exactly the scope
+### 4. Implement exactly the scope
 
 Make the change the issue asks for — nothing adjacent. Park unrelated
 discoveries for a follow-up issue instead of folding them in; if a judgment
@@ -87,7 +120,7 @@ shared changelog structure as stack-owner integration scope and validate it
 after every rebase; absence of conflict markers does not prove semantic
 correctness.
 
-### 4. Gate chain — all before any push
+### 5. Gate chain — all before any push
 
 Run in order; each gate acts on the previous one's findings:
 
@@ -104,7 +137,7 @@ Run in order; each gate acts on the previous one's findings:
    cascading rebase. Bounded attempts (default 3) per failing gate, then
    escalate.
 
-### 5. Ship the draft PR
+### 6. Ship the draft PR
 
 In local stack-member mode, stop here and return the signed single-commit
 handoff to the stack owner. The remaining steps are performed by the owner for
@@ -123,14 +156,14 @@ reviewer should veto. For a stack child, also name the parent issue/PR and base
 branch. No AI attribution footers. Verify `gh pr view --json baseRefName` equals
 the resolved base; correct it with `gh pr edit --base` before continuing.
 
-### 6. CI to green
+### 7. CI to green
 
 Watch checks (`gh pr checks <n> --watch` or poll on a sensible interval). On
 failure: fix on the branch, rerun local gates, push, repeat. Three attempts on
 the same failing signature without progress → stop and report rather than
 thrash.
 
-### 7. Final history cleanup
+### 8. Final history cleanup
 
 Keep the PR draft while cleaning its history. Once draft CI is green, update
 against the PR's current base, resolve any conflicts with code-grounded intent,
@@ -169,11 +202,11 @@ empty commit. Never use plain `--force`, and never target the base branch.
 
 Rerun CI on the rewritten SHA. Only that SHA may advance to ready.
 
-### 8. Mark ready
+### 9. Mark ready
 
 When all checks pass on the latest commit: `gh pr ready <n>`.
 
-### 9. Drain Bugbot
+### 10. Drain Bugbot
 
 Wait for Cursor Bugbot to review the latest commit. For each finding: triage
 (use a bugbot-triage agent when available — verdict real / false-positive /
