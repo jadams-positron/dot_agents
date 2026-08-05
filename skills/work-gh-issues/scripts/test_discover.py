@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from discover import (
     BLOCKED_LABEL,
@@ -12,7 +13,13 @@ from discover import (
     open_blockers,
     parse_repository,
 )
-from launch import parse_dependencies, stack_chains, topological_order, worker_prompt
+from launch import (
+    launch_command,
+    parse_dependencies,
+    stack_chains,
+    topological_order,
+    worker_prompt,
+)
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -62,6 +69,33 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIn("gh stack sync", prompt)
         self.assertIn("Do not create another worktree", prompt)
         self.assertIn("pr-description as the sole body-authoring path", prompt)
+
+    def test_worker_prompt_supports_custom_names_and_instructions(self) -> None:
+        prompt = worker_prompt(
+            "owner/repo",
+            [42, 43],
+            "main",
+            name_prefix="api",
+            extra_instructions="Serialize live deployments with lockf.",
+        )
+        self.assertIn("replacing the final `api#42` with `api#<child>`", prompt)
+        self.assertIn("Additional user-authorized worker contract", prompt)
+        self.assertIn("Serialize live deployments with lockf.", prompt)
+
+    def test_launch_command_uses_custom_name_and_worker_contract(self) -> None:
+        command = launch_command(
+            Path("/repo"),
+            "owner/repo",
+            "api",
+            "gpt-test",
+            [42],
+            "main",
+            "api",
+            "Run the live gate.",
+        )
+        self.assertEqual(command[command.index("--title") + 1], "api#42")
+        self.assertEqual(command[command.index("--worktree") + 1], "api#42")
+        self.assertIn("Run the live gate.", command[command.index("--message") + 1])
 
     def test_dependencies_are_validated_and_topologically_sorted(self) -> None:
         dependencies = parse_dependencies(["#43:#42", "44:43"], [44, 42, 43, 99])

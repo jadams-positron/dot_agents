@@ -100,6 +100,8 @@ Run the bundled launcher instead of reconstructing commands:
 ```bash
 python3 <skill-dir>/scripts/launch.py \
   --repo <local-path> <issue> [<issue> ...] \
+  [--group <group>] [--name-prefix <prefix>] \
+  [--instructions-file <path>] \
   [--depends-on <child>:<immediate-parent> ...]
 ```
 
@@ -113,9 +115,14 @@ Defaults:
 
 - Agent Deck group: repository directory name; override with `--group` only
   when the user names another group.
-- Session title and requested branch handle: `work#<issue>`.
+- Session title and requested branch handle: `work#<issue>`; override the
+  `work` portion with `--name-prefix` when the user names another scheme.
 - Worktrees: the repository's configured Agent Deck worktree location.
 - Agent and model: Codex `gpt-5.6-sol`.
+
+Use `--instructions-file` to append user-specific authorization, validation,
+coordination, or deployment constraints to every worker prompt. Do not place
+secret values in that file.
 
 Agent Deck may apply its configured prefix to the actual branch and worktree
 leaf (for example, `feature/work#21` and `feature-work#21`). Treat the paths

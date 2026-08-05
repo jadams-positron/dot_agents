@@ -35,6 +35,16 @@ def parse_args() -> argparse.Namespace:
         "--group",
         help="Agent Deck group (default: repository directory name).",
     )
+    parser.add_argument(
+        "--name-prefix",
+        default="work",
+        help="Session/worktree/branch name prefix before #ISSUE (default: work).",
+    )
+    parser.add_argument(
+        "--instructions-file",
+        type=Path,
+        help="Append additional worker instructions from this UTF-8 text file.",
+    )
     parser.add_argument("--model", default="gpt-5.6-sol", help="Codex model ID.")
     parser.add_argument(
         "--depends-on",
@@ -208,11 +218,13 @@ def worker_prompt(
     repository: str,
     issues: list[int],
     base_branch: str,
+    name_prefix: str = "work",
+    extra_instructions: str = "",
 ) -> str:
     issue_refs = ", ".join(f"#{issue}" for issue in issues)
     root_issue = issues[0]
     if len(issues) == 1:
-        return f"""Run the work-issue skill end to end for GitHub issue {repository}#{root_issue}.
+        prompt = f"""Run the work-issue skill end to end for GitHub issue {repository}#{root_issue}.
 
 Agent Deck has already created an isolated worktree and branch for this issue. Treat the current worktree and branch names as authoritative; Agent Deck may apply its configured branch prefix. Use them for work-issue's isolation step. Do not create another worktree and do not rename the branch.
 
@@ -223,18 +235,27 @@ Before any upstream push or PR creation, perform a thorough multi-angle review o
 Use the pr-description skill as the sole PR-body authoring path. Create a validated rich body from the exact base-to-head diff and observed evidence, include Example Usage when applicable, and refresh it against the final SHA after CI and Bugbot.
 
 Create the PR as a draft, assign it to @me, apply the appropriate labels from issue #{root_issue}, include Closes #{root_issue}, complete the CI and Bugbot workflow, never merge, and never add AI attribution."""
+        return append_extra_instructions(prompt, extra_instructions)
 
-    return f"""Act as the sole writer and native GitHub stack integrator for {repository} issues {issue_refs}, ordered bottom-to-tip. No other worker owns any branch in this chain.
+    prompt = f"""Act as the sole writer and native GitHub stack integrator for {repository} issues {issue_refs}, ordered bottom-to-tip. No other worker owns any branch in this chain.
 
 Agent Deck has created one isolated worktree and the root branch for issue #{root_issue}. Treat the current worktree and branch as authoritative; Agent Deck may have added a prefix. Do not create another worktree, launch per-issue workers, or let another checkout hold a stack branch.
 
-Read and follow the work-gh-issues stack-owner contract and work-issue stack-member mode. Initialize the current root branch with `gh stack init --base {base_branch} <actual-root-branch>`. Process issues in this exact order: {issue_refs}. For each child, derive its branch by preserving the root branch's prefix and replacing the final `work#{root_issue}` with `work#<child>`, then create it with `gh stack add <child-branch>`.
+Read and follow the work-gh-issues stack-owner contract and work-issue stack-member mode. Initialize the current root branch with `gh stack init --base {base_branch} <actual-root-branch>`. Process issues in this exact order: {issue_refs}. For each child, derive its branch by preserving the root branch's prefix and replacing the final `{name_prefix}#{root_issue}` with `{name_prefix}#<child>`, then create it with `gh stack add <child-branch>`.
 
 For each issue, run work-issue locally through its gate chain and leave exactly one signed, why-focused commit. Do not push or create that issue's PR independently. Keep only that issue's user-visible changelog entry in its commit.
 
 After all branches pass their local gates, run the local multi-angle review and fix-all workflow across the complete stack. Use pr-description as the sole body-authoring path to write and validate a separate body file for each future PR from only its immediate base-to-head diff; never reuse a cumulative body. Then run `gh stack rebase` and `gh stack submit --auto`, apply the prepared bodies, and correct every PR's title, assignee, labels, `Closes #<issue>`, and immediate base. Record the ordered branches, PRs, bases, worktree, owner, and expected remote SHAs.
 
 Handle CI and Bugbot bottom-to-tip. Amend fixes into the owning issue commit, run `gh stack rebase --upstack`, and use `gh stack sync` to atomically update the chain. Recheck every affected descendant on its new SHA. Refresh each affected PR through pr-description against its final immediate base and head. Never repair or push one parent branch in isolation, never merge, and never add AI attribution."""
+    return append_extra_instructions(prompt, extra_instructions)
+
+
+def append_extra_instructions(prompt: str, extra_instructions: str) -> str:
+    extra_instructions = extra_instructions.strip()
+    if not extra_instructions:
+        return prompt
+    return f"{prompt}\n\nAdditional user-authorized worker contract:\n\n{extra_instructions}"
 
 
 def launch_command(
@@ -244,8 +265,10 @@ def launch_command(
     model: str,
     issues: list[int],
     base_branch: str,
+    name_prefix: str,
+    extra_instructions: str,
 ) -> list[str]:
-    name = f"work#{issues[0]}"
+    name = f"{name_prefix}#{issues[0]}"
     return [
         "agent-deck",
         "launch",
@@ -265,7 +288,13 @@ def launch_command(
         "--location",
         "subdirectory",
         "--message",
-        worker_prompt(repository, issues, base_branch),
+        worker_prompt(
+            repository,
+            issues,
+            base_branch,
+            name_prefix,
+            extra_instructions,
+        ),
         "--json",
     ]
 
@@ -288,9 +317,9 @@ def read_agent_deck_sessions() -> list[dict[str, Any]]:
     return sessions
 
 
-def launched_branch(repository: str, issue: int) -> str:
+def launched_branch(repository: str, issue: int, name_prefix: str) -> str:
     """Resolve Agent Deck's actual, possibly prefixed branch name."""
-    title = f"work#{issue}"
+    title = f"{name_prefix}#{issue}"
     candidates: list[dict[str, Any]] = []
     for session in read_agent_deck_sessions():
         if session.get("archived", False) or session.get("title") != title:
@@ -316,12 +345,17 @@ def launched_branch(repository: str, issue: int) -> str:
     return branch
 
 
-def check_collisions(repo: Path, repository: str, issues: list[int]) -> None:
+def check_collisions(
+    repo: Path,
+    repository: str,
+    issues: list[int],
+    name_prefix: str,
+) -> None:
     collisions: list[str] = []
     active_sessions = read_agent_deck_sessions()
 
     for issue in issues:
-        name = f"work#{issue}"
+        name = f"{name_prefix}#{issue}"
         for session in active_sessions:
             if session.get("archived", False) or session.get("title") != name:
                 continue
@@ -380,10 +414,22 @@ def main() -> int:
             raise ValueError(f"checkout has no GitHub origin: {repo}")
         repository = found[0]
         group = args.group or repo.name
+        if re.fullmatch(r"[A-Za-z0-9._-]+", args.name_prefix) is None:
+            raise ValueError(
+                "name prefix must contain only letters, digits, dot, underscore, or dash"
+            )
+        extra_instructions = ""
+        if args.instructions_file is not None:
+            try:
+                extra_instructions = args.instructions_file.read_text(encoding="utf-8")
+            except OSError as exc:
+                raise ValueError(
+                    f"could not read instructions file {args.instructions_file}: {exc}"
+                ) from exc
         dependencies = parse_dependencies(args.depends_on, issues)
         chains = stack_chains(issues, dependencies)
         default_branch = repository_default_branch(repository)
-        check_collisions(repo, repository, issues)
+        check_collisions(repo, repository, issues, args.name_prefix)
     except (TypeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -398,22 +444,25 @@ def main() -> int:
             args.model,
             chain,
             default_branch,
+            args.name_prefix,
+            extra_instructions,
         )
         if args.dry_run:
             print(shlex.join(command))
             continue
 
         issue_refs = " -> ".join(f"#{issue}" for issue in chain)
-        print(f"Launching {issue_refs} as work#{root_issue}...", flush=True)
+        owner_name = f"{args.name_prefix}#{root_issue}"
+        print(f"Launching {issue_refs} as {owner_name}...", flush=True)
         result = subprocess.run(command, check=False)
         if result.returncode != 0:
             failures.extend(chain)
             continue
         try:
-            branch = launched_branch(repository, root_issue)
+            branch = launched_branch(repository, root_issue, args.name_prefix)
             kind = "stack" if len(chain) > 1 else "issue"
             print(
-                f"{kind.title()} {issue_refs}: owner work#{root_issue} "
+                f"{kind.title()} {issue_refs}: owner {owner_name} "
                 f"({branch}) -> rooted on {default_branch}"
             )
         except (TypeError, ValueError) as exc:
