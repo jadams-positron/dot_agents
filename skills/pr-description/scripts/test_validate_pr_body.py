@@ -17,6 +17,15 @@ Adds the requested widget behavior without changing the public API.
 
 - `go test ./...` — passed
 
+## Live Evidence
+
+Tested against the development deployment:
+
+```console
+$ curl -fsS https://example.test/widgets/73
+{"status":"enabled"}
+```
+
 ## Example Usage
 
 ```yaml
@@ -49,6 +58,40 @@ class ValidatePRBodyTest(unittest.TestCase):
             "expected exactly one ## Example Usage heading",
             validate(body, require_example=True),
         )
+
+    def test_requires_live_evidence_when_requested(self) -> None:
+        body = GOOD_BODY.replace(
+            '## Live Evidence\n\nTested against the development deployment:\n\n'
+            '```console\n$ curl -fsS https://example.test/widgets/73\n'
+            '{"status":"enabled"}\n```\n\n',
+            "",
+        )
+        self.assertIn(
+            "expected exactly one ## Live Evidence heading",
+            validate(body, require_live_evidence=True),
+        )
+
+    def test_live_evidence_requires_image_or_transcript(self) -> None:
+        body = GOOD_BODY.replace(
+            'Tested against the development deployment:\n\n'
+            '```console\n$ curl -fsS https://example.test/widgets/73\n'
+            '{"status":"enabled"}\n```',
+            "Observed the expected result.",
+        )
+        self.assertIn(
+            "## Live Evidence must contain an embedded image or fenced transcript",
+            validate(body, require_live_evidence=True),
+        )
+
+    def test_accepts_embedded_live_screenshot(self) -> None:
+        body = GOOD_BODY.replace(
+            'Tested against the development deployment:\n\n'
+            '```console\n$ curl -fsS https://example.test/widgets/73\n'
+            '{"status":"enabled"}\n```',
+            "Development deployment after enabling the widget.\n\n"
+            "![Enabled widget in the deployment UI](https://example.test/evidence.png)",
+        )
+        self.assertEqual(validate(body, require_live_evidence=True), [])
 
     def test_rejects_ai_attribution(self) -> None:
         variants = (

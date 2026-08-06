@@ -149,10 +149,14 @@ A multi-issue worker is the sole writer and integrator for the entire chain. It:
 3. Runs the local multi-angle review and `fix-all` gates before the first
    submission, then invokes `pr-description` as the sole body-authoring path for
    each PR, using that PR's immediate base-to-head diff rather than the cumulative
-   stack. It writes and validates a separate body file for every member before
-   running `gh stack rebase` and `gh stack submit --auto`. After submission it
-   applies those bodies and corrects every PR's title, assignee, labels,
-   `Closes #<issue>` metadata, and base; no body is reused across stack members.
+   stack. When live validation is required, it includes an inspected screenshot
+   for visual behavior or a sanitized request/response or command/output
+   transcript for nonvisual behavior, then validates with
+   `--require-live-evidence`. It writes and validates a separate body file for
+   every member before running `gh stack rebase` and `gh stack submit --auto`.
+   After submission it applies those bodies and corrects every PR's title,
+   assignee, labels, `Closes #<issue>` metadata, and base; no body is reused
+   across stack members.
 4. Records a manifest containing ordered issues, branches, PRs, bases, expected
    remote SHAs, worktree, and the sole owner. It verifies GitHub's PR bases match
    the chain and that every expected PR is linked to the native stack.

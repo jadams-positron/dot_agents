@@ -19,8 +19,8 @@ already granted by the user or calling workflow.
 3. Inspect the complete base-to-head diff and enough surrounding code to explain
    control flow, contracts, failure paths, and deliberate non-changes.
 4. Collect observed evidence only: exact test commands and outcomes, review
-   results, CI state, and relevant red/green TDD evidence. Never claim a check
-   was run when it was not.
+   results, CI state, relevant red/green TDD evidence, and any required live
+   validation. Never claim a check was run when it was not.
 5. Rebuild this evidence set after a rebase, stack sync, substantive fix, CI
    repair, or Bugbot repair before refreshing the description.
 
@@ -51,6 +51,30 @@ List exact commands and observed results. Explain which behavior, edge cases, or
 contracts each check covers when the command name is not self-explanatory. Include
 applicable race, security, coverage, hardware, live-environment, and red/green
 evidence. Say `Not run` with the reason for any material gap.
+
+### `## Live Evidence`
+
+Include this section whenever deployed or runtime behavior was exercised, or
+when the issue, repository, or user requires live validation. Name the
+non-sensitive target or environment, the scenario exercised, and the observed
+result.
+
+- For UI or other visual behavior, embed a screenshot of the live result with
+  useful alt text and a caption explaining what it proves. Include before and
+  after images when the claim depends on a visual comparison.
+- For nonvisual API, CLI, operator, or deployment behavior, include a fenced,
+  sanitized request/response or command/output transcript instead of a terminal
+  screenshot.
+- Inspect every image and transcript before publishing. Exclude credentials,
+  tokens, customer data, private infrastructure details, and unrelated desktop
+  content. Evidence supplements the exact commands in `## Testing`; it never
+  replaces them.
+
+Use a GitHub-hosted attachment when authenticated upload is available. When the
+repository already has an evidence-asset convention, a repository image may be
+embedded with a relative link. Never upload evidence to an unapproved public
+host. If required evidence cannot be published safely, keep the PR in draft and
+report the blocker instead of silently omitting it.
 
 ### `## Example Usage`
 
@@ -99,7 +123,10 @@ python3 scripts/validate_pr_body.py <body-file> --issue <number>
 
 Run that command from this skill's directory, or use the script's absolute path.
 Add `--require-example` when an example is applicable. After publishing, fetch the
-live body and verify it still matches the intended body.
+live body and verify it still matches the intended body. Add
+`--require-live-evidence` whenever live evidence is required; the validator then
+requires a non-empty `## Live Evidence` section containing either an embedded
+image or a fenced transcript.
 
 Never include AI attribution, generated-summary markers, model names, or AI
 co-author/reviewer trailers. When refreshing an existing body, remove generated

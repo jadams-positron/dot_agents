@@ -127,11 +127,17 @@ Run in order; each gate acts on the previous one's findings:
 
 1. Project test suites relevant to the change, plus the pre-commit gate run
    manually once so the commit doesn't discover failures.
-2. `fess` — honesty audit of the work; convert uncertainty into verification
+2. When the issue, repository, or user explicitly requires live validation,
+   exercise the deployed behavior and retain reviewable evidence. Capture and
+   inspect a screenshot for UI or visual behavior. For nonvisual API, CLI,
+   operator, or deployment behavior, retain a sanitized request/response or
+   command/output transcript. Never expose credentials, tokens, customer data,
+   private infrastructure details, or unrelated desktop content.
+3. `fess` — honesty audit of the work; convert uncertainty into verification
    commands, not assertions.
-3. `fix-all` — fix every fess finding now, upstream-shaped; reverting scope
+4. `fix-all` — fix every fess finding now, upstream-shaped; reverting scope
    creep counts as a fix.
-4. `wiggum` — loop until the Definition of Done holds: commit, then dispatch a
+5. `wiggum` — loop until the Definition of Done holds: commit, then dispatch a
    SEPARATE fess subagent to audit the commit (never self-grade), fold real
    findings back in, and keep a standalone branch rebased on its resolved base.
    A stack member does not independently rebase; the stack owner performs the
@@ -147,10 +153,12 @@ the whole chain using `gh stack submit --auto` and `gh stack sync`.
 Commit with why-focused messages during development (no AI attribution, ever).
 Before the first push, invoke `pr-description` as the sole PR-body authoring
 path. Give it the issue and acceptance criteria, resolved base and head, complete
-diff, observed tests and review results, and stack context when applicable. Have
-it write a body file and validate that file with `--issue <N>` plus
-`--require-example` when the change has a meaningful usage or configuration
-surface. Do not handwrite a competing summary.
+diff, observed tests and review results, live evidence when required, and stack
+context when applicable. Have it write a body file and validate that file with
+`--issue <N>`, plus `--require-example` when the change has a meaningful usage
+or configuration surface and `--require-live-evidence` when live validation is
+required. Do not handwrite a competing summary. Do not advance a PR to ready
+while required live evidence is missing or cannot be published safely.
 
 Push with an explicit refspec: `git push -u origin HEAD:<branch>`. Then:
 
