@@ -14,6 +14,24 @@ do not implement issues in the conductor directory.
   immediately before a launch.
 - Use Agent Deck session IDs as machine identifiers. Titles are display names.
 
+## Startup and Durable State
+
+At the start of every session or resume, before handling the request:
+
+1. Read `POLICY.md`, `HEARTBEAT_RULES.md`, the local and shared
+   `LEARNINGS.md` files, `state.json` when present, and recent `task-log.md`
+   entries.
+2. Drain `agent-deck inbox drain self --json` and process each event once.
+3. Resolve the active profile and this session's stable ID with
+   `agent-deck session current --json`, then reconcile parent-linked children
+   with `agent-deck session children --json`.
+4. Create or update `state.json` with a compact, valid JSON summary of the
+   active batch and child IDs. Never store secrets or full output dumps.
+
+Append every material discovery, launch, supervision action, and escalation to
+`task-log.md` with a timestamp and reason. Do this before the final response so
+the next turn can recover even after compaction or restart.
+
 ## Request Semantics
 
 - A request to list, show, inspect, or plan issues is read-only. Do not launch.
