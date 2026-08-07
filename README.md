@@ -35,25 +35,26 @@ over with `cutover-strangler-runbook`.
 
 | Skill | Description |
 |---|---|
-| `migration-worthiness-memo` | Decide whether a big migration or rewrite is worth doing — a go/no-go memo anchored on which bug classes the target eliminates at compile time, before any code. |
-| `migration-plan-and-discipline` | Plan and enforce a large mechanical migration: a translation guide plus a cross-cutting decisions ledger, structure-preserving one-file-to-one-file porting, and staged convergence gates. |
-| `semantic-delta-catalog` | Catalog and burn down source→target semantic deltas (the "compiles fine, computes wrong" class), pinning each with a test that fails under the wrong behavior. |
-| `test-census-parity` | Prove a refactor or port lost no test coverage — a before/after census that fails on any silently deleted, skipped, or weakened test. |
-| `differential-golden-harness` | Diff old-vs-new outputs over an input corpus with a normalization pass, proving byte-for-byte parity or triaging every difference. |
-| `cutover-strangler-runbook` | Cut live traffic over to a rewrite safely: dual-run, shadow-compare, a gated percentage rollout behind a flag, and scripted rollback. |
+| [`migration-worthiness-memo`](skills/migration-worthiness-memo/SKILL.md) | Decide whether a big migration or rewrite is worth doing — a go/no-go memo anchored on which bug classes the target eliminates at compile time, before any code. |
+| [`migration-plan-and-discipline`](skills/migration-plan-and-discipline/SKILL.md) | Plan and enforce a large mechanical migration: a translation guide plus a cross-cutting decisions ledger, structure-preserving one-file-to-one-file porting, and staged convergence gates. |
+| [`semantic-delta-catalog`](skills/semantic-delta-catalog/SKILL.md) | Catalog and burn down source→target semantic deltas (the "compiles fine, computes wrong" class), pinning each with a test that fails under the wrong behavior. |
+| [`test-census-parity`](skills/test-census-parity/SKILL.md) | Prove a refactor or port lost no test coverage — a before/after census that fails on any silently deleted, skipped, or weakened test. |
+| [`differential-golden-harness`](skills/differential-golden-harness/SKILL.md) | Diff old-vs-new outputs over an input corpus with a normalization pass, proving byte-for-byte parity or triaging every difference. |
+| [`cutover-strangler-runbook`](skills/cutover-strangler-runbook/SKILL.md) | Cut live traffic over to a rewrite safely: dual-run, shadow-compare, a gated percentage rollout behind a flag, and scripted rollback. |
 
 ### General
 
 | Skill | Description |
 |---|---|
-| `distill` | Iteratively simplify code, prose, and communication through at least three verified reduction passes; also structures internal docs and preserves the publishing workflow for runbooks. |
-| `document-research` | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
-| `file-issue` | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
-| `investigate-performance` | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
-| `pr-description` | Draft, validate, create, or refresh rich PR descriptions with concrete review guidance, evidence-backed summaries and tests, and usage or configuration examples when applicable. |
-| `reconcile-issues` | Audit a set of GitHub issues (epic children, a title prefix, a label) against the codebase — which shipped, which are superseded, which need re-scoping — then execute the closes, consolidations, epic rewrite, and native sub-issue sync on approval. |
-| `work-gh-issues` | Discover actionable issues, map interdependencies into GitHub PR stacks, and fan them out into isolated Agent Deck Codex sessions with shared quality gates. |
-| `work-issue` | Work a GitHub issue end to end — implement in a worktree, run the quality gates, open a stack-aware draft PR, squash iterative history, drive CI to green, and resolve Bugbot findings. |
+| [`distill`](skills/distill/SKILL.md) | Iteratively simplify code, prose, and communication through at least three verified reduction passes; also structures internal docs and preserves the publishing workflow for runbooks. |
+| [`document-research`](skills/document-research/SKILL.md) | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
+| [`file-issue`](skills/file-issue/SKILL.md) | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
+| [`investigate-performance`](skills/investigate-performance/SKILL.md) | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
+| [`pr-description`](skills/pr-description/SKILL.md) | Draft, validate, create, or refresh evidence-backed PR descriptions with concrete review guidance, tests, applicable usage examples, and byte-for-byte preservation of an appended Bugbot summary. |
+| [`reconcile-issues`](skills/reconcile-issues/SKILL.md) | Audit a set of GitHub issues (epic children, a title prefix, a label) against the codebase — which shipped, which are superseded, which need re-scoping — then execute the closes, consolidations, epic rewrite, and native sub-issue sync on approval. |
+| [`refactor-campaign`](skills/refactor-campaign/SKILL.md) | Review an entire codebase for a broad refactoring goal, validate findings into dependency-ordered work units, and integrate audited worker commits locally. |
+| [`work-gh-issues`](skills/work-gh-issues/SKILL.md) | Discover actionable issues, map interdependencies into GitHub PR stacks, and fan them out into isolated Agent Deck Codex sessions with shared quality gates. |
+| [`work-issue`](skills/work-issue/SKILL.md) | Work a GitHub issue end to end — implement in a worktree, run the quality gates, open a stack-aware draft PR, squash iterative history, drive CI to green, and resolve Bugbot findings. |
 
 ## Syncing
 

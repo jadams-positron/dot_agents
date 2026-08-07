@@ -23,6 +23,9 @@ already granted by the user or calling workflow.
    validation. Never claim a check was run when it was not.
 5. Rebuild this evidence set after a rebase, stack sync, substantive fix, CI
    repair, or Bugbot repair before refreshing the description.
+6. Before rewriting an existing PR body, fetch its live body. If Bugbot has
+   appended a `<!-- CURSOR_SUMMARY -->` ... `<!-- /CURSOR_SUMMARY -->` block at
+   the end, retain that exact block for preservation during the rewrite.
 
 ## Write the body
 
@@ -96,7 +99,8 @@ Place optional detail after the core sections and before closing trailers. Commo
 sections are `## Risk and Rollback`, `## Dependencies / Stack`, `## Breaking
 Changes`, `## Deployment / Operator Notes`, and `## Out of Scope`.
 
-Put issue-closing and stack trailers last, for example:
+Put issue-closing and stack trailers last in the agent-authored content, for
+example:
 
 ```text
 Closes #73
@@ -104,6 +108,19 @@ Stacked on #72
 ```
 
 Use the repository's required closing syntax exactly.
+
+## Preserve Bugbot's appended summary
+
+If the live PR body ends with a Bugbot summary block, copy the complete block
+into the rewritten body byte-for-byte and keep it at the end. This includes the
+opening and closing markers, whitespace, links, reviewed commit SHA, and all
+summary text. Never edit, reflow, regenerate, relocate, or delete any part of
+it. Do not add a Bugbot summary when the live body does not already contain one.
+If the exact block cannot be recovered, do not rewrite the live description.
+
+The issue-closing and stack trailers remain last in the agent-authored content;
+the preserved Bugbot block follows them because Bugbot owns that appended
+content.
 
 ## Publish and verify
 
@@ -115,7 +132,16 @@ gh pr create --body-file <body-file>
 gh pr edit <PR> --body-file <body-file>
 ```
 
-Before publishing, run:
+For an existing PR, first save its current live body, then pass that snapshot to
+the validator so it can prove that any ending Bugbot summary is unchanged:
+
+```bash
+gh pr view <PR> --json body --jq .body > <live-body-file>
+python3 scripts/validate_pr_body.py <body-file> --issue <number> \
+  --existing-body <live-body-file>
+```
+
+For a new PR, run:
 
 ```bash
 python3 scripts/validate_pr_body.py <body-file> --issue <number>
@@ -128,7 +154,8 @@ live body and verify it still matches the intended body. Add
 requires a non-empty `## Live Evidence` section containing either an embedded
 image or a fenced transcript.
 
-Never include AI attribution, generated-summary markers, model names, or AI
-co-author/reviewer trailers. When refreshing an existing body, remove generated
-summary blocks and attribution instead of preserving them. Preserve accurate
-human-authored context that remains useful.
+Never add AI attribution, generated-summary markers, model names, or AI
+co-author/reviewer trailers. The sole exception is an existing Bugbot summary
+at the end of the live body: preserve it exactly as required above. Remove all
+other generated summaries and attribution from the agent-authored content.
+Preserve accurate human-authored context that remains useful.

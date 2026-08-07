@@ -10,9 +10,9 @@ Deck owns mutable state, learnings, and logs under
 | Layer | Implementation |
 |---|---|
 | Runtime | Named Agent Deck conductor sessions, using Codex where the workflow depends on Codex skills. |
-| Instructions | Source-controlled `AGENTS.md` files linked into each conductor by `--instructions-md`. |
-| Policy | Per-conductor authorization and escalation rules linked with `--policy-md`. |
-| Heartbeat | Small workflow-specific checks linked with `--heartbeat-rules-md`; Agent Deck supplies scheduling and durable inbox delivery. |
+| Instructions | Per-conductor source, currently [`work-gh-issues/AGENTS.md`](work-gh-issues/AGENTS.md), passed through `--instructions-md`. |
+| Policy | Authorization and escalation rules, currently [`work-gh-issues/POLICY.md`](work-gh-issues/POLICY.md), passed through `--policy-md`. |
+| Heartbeat | Workflow checks, currently [`work-gh-issues/HEARTBEAT_RULES.md`](work-gh-issues/HEARTBEAT_RULES.md), passed through `--heartbeat-rules-md`; Agent Deck supplies scheduling and durable inbox delivery. |
 | State | Agent Deck-managed `state.json`, `LEARNINGS.md`, and `task-log.md`; concurrent work is stored in a batch-ID-keyed `batches` map, and runtime data is not committed. |
 | Workers | Parent-linked Agent Deck child sessions; stable session IDs, not titles, are used for automation. |
 
@@ -20,7 +20,7 @@ Deck owns mutable state, learnings, and logs under
 
 | Conductor | Agent | Purpose | Primary skill | Session |
 |---|---|---|---|---|
-| `work-gh-issues` | Codex | Discover, plan, launch, and supervise GitHub issue and PR-stack owners. | `work-gh-issues` | `conductor-work-gh-issues` |
+| [`work-gh-issues`](work-gh-issues/AGENTS.md) | Codex | Discover, plan, launch, and supervise GitHub issue and PR-stack owners. | [`work-gh-issues`](../skills/work-gh-issues/SKILL.md) | `conductor-work-gh-issues` |
 
 ## Setup
 

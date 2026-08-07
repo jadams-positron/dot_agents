@@ -35,6 +35,14 @@ widget: enabled
 Closes #73
 """
 
+BUGBOT_SUMMARY = """<!-- CURSOR_SUMMARY -->
+> [!NOTE]
+> **Low Risk**
+> Documentation-only change.
+>
+> <sup>Reviewed by [Cursor Bugbot](https://cursor.com/bugbot) for commit abc123.</sup>
+<!-- /CURSOR_SUMMARY -->"""
+
 
 class ValidatePRBodyTest(unittest.TestCase):
     def test_accepts_complete_body(self) -> None:
@@ -104,6 +112,34 @@ class ValidatePRBodyTest(unittest.TestCase):
         for variant in variants:
             with self.subTest(variant=variant):
                 self.assertTrue(validate(f"{GOOD_BODY}\n{variant}\n"))
+
+    def test_accepts_exactly_preserved_ending_bugbot_summary(self) -> None:
+        existing_body = f"Old description.\n\n{BUGBOT_SUMMARY}\n"
+        rewritten_body = f"{GOOD_BODY}\n{BUGBOT_SUMMARY}\n"
+        self.assertEqual(
+            validate(rewritten_body, issue=73, existing_body=existing_body), []
+        )
+
+    def test_rejects_changed_ending_bugbot_summary(self) -> None:
+        existing_body = f"Old description.\n\n{BUGBOT_SUMMARY}\n"
+        rewritten_body = f"{GOOD_BODY}\n{BUGBOT_SUMMARY.replace('abc123', 'def456')}\n"
+        self.assertIn(
+            "ending Bugbot summary must be preserved exactly",
+            validate(rewritten_body, issue=73, existing_body=existing_body),
+        )
+
+    def test_rejects_removed_ending_bugbot_summary(self) -> None:
+        existing_body = f"Old description.\n\n{BUGBOT_SUMMARY}\n"
+        self.assertIn(
+            "ending Bugbot summary must be preserved exactly",
+            validate(GOOD_BODY, issue=73, existing_body=existing_body),
+        )
+
+    def test_rejects_new_bugbot_summary_without_existing_source(self) -> None:
+        self.assertIn(
+            "Bugbot summary must come unchanged from the existing PR body",
+            validate(f"{GOOD_BODY}\n{BUGBOT_SUMMARY}\n", issue=73),
+        )
 
     def test_requires_exact_closing_trailer(self) -> None:
         errors = validate(GOOD_BODY.replace("Closes #73", "Fixes #73"), issue=73)

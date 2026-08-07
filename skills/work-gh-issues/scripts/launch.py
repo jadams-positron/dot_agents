@@ -251,7 +251,7 @@ This is an independent issue rooted on `{base_branch}`. Use that exact branch fo
 
 Before any upstream push or PR creation, perform a thorough multi-angle review of the complete local diff using the agent-pr-review methodology, but do not post a GitHub review. Run fix-all on every validated finding, rerun all relevant tests, and repeat until clean. Then continue the work-issue workflow.
 
-Use the pr-description skill as the sole PR-body authoring path. Create a validated rich body from the exact base-to-head diff and observed evidence, include Example Usage when applicable, and refresh it against the final SHA after CI and Bugbot.
+Use the pr-description skill as the sole PR-body authoring path. Create a validated rich body from the exact base-to-head diff and observed evidence, include Example Usage when applicable, and refresh it against the final SHA after CI and Bugbot. Before rewriting a live body, preserve any Bugbot summary appended at the end byte-for-byte and validate against the live snapshot with --existing-body.
 
 Create the PR as a draft, assign it to @me, apply the appropriate labels from issue #{root_issue}, include Closes #{root_issue}, complete the CI and Bugbot workflow, never merge, and never add AI attribution."""
         return append_extra_instructions(prompt, extra_instructions)
@@ -266,7 +266,7 @@ For each issue, run work-issue locally through its gate chain and leave exactly 
 
 After all branches pass their local gates, run the local multi-angle review and fix-all workflow across the complete stack. Use pr-description as the sole body-authoring path to write and validate a separate body file for each future PR from only its immediate base-to-head diff; never reuse a cumulative body. Then run `gh stack rebase` and `gh stack submit --auto`, apply the prepared bodies, and correct every PR's title, assignee, labels, `Closes #<issue>`, and immediate base. Record the ordered branches, PRs, bases, worktree, owner, and expected remote SHAs.
 
-Handle CI and Bugbot bottom-to-tip. Amend fixes into the owning issue commit, run `gh stack rebase --upstack`, and use `gh stack sync` to atomically update the chain. Recheck every affected descendant on its new SHA. Refresh each affected PR through pr-description against its final immediate base and head. Never repair or push one parent branch in isolation, never merge, and never add AI attribution."""
+Handle CI and Bugbot bottom-to-tip. Amend fixes into the owning issue commit, run `gh stack rebase --upstack`, and use `gh stack sync` to atomically update the chain. Recheck every affected descendant on its new SHA. Refresh each affected PR through pr-description against its final immediate base and head. Before rewriting a live body, preserve any Bugbot summary appended at the end byte-for-byte and validate against the live snapshot with --existing-body. Never repair or push one parent branch in isolation, never merge, and never add AI attribution."""
     return append_extra_instructions(prompt, extra_instructions)
 
 

@@ -18,7 +18,8 @@ the answer:
 - continue through required tests, local review, `fix-all`, CI, and Bugbot;
 - use the Agent Deck-created worktree and branch;
 - fix every validated finding and rerun affected checks;
-- refresh PR descriptions and evidence against the final SHA;
+- refresh PR descriptions and evidence against the final SHA, preserving any
+  Bugbot summary appended to the live body byte-for-byte at the end;
 - use `--force-with-lease` only for a solely owned issue or stack branch when
   the observed remote SHA matches the worker's recorded expectation.
 

@@ -191,9 +191,10 @@ A multi-issue worker is the sole writer and integrator for the entire chain. It:
 6. Handles CI and Bugbot bottom-to-tip. Every real fix is amended into that
    issue's single commit, followed by another whole-stack rebase and sync. It
    reruns `pr-description` for every affected PR against its final immediate
-   base and head, removes generated attribution, and validates the refreshed
-   body. No PR becomes ready until the latest SHA of every affected descendant
-   is green.
+   base and head. Before each rewrite it fetches the live body and preserves any
+   Bugbot summary appended at the end byte-for-byte, using that snapshot as the
+   validator's `--existing-body`; it removes other generated attribution. No PR
+   becomes ready until the latest SHA of every affected descendant is green.
 7. Never merges and never adds AI attribution.
 
 If a worker discovers that another session or checkout moved a stack branch,

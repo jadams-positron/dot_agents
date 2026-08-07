@@ -10,13 +10,22 @@ from pathlib import Path
 REQUIRED_HEADINGS = ("## How to Review", "## Summary", "## Testing")
 EXAMPLE_HEADING = "## Example Usage"
 LIVE_EVIDENCE_HEADING = "## Live Evidence"
+BUGBOT_START = "<!-- CURSOR_SUMMARY -->"
+BUGBOT_END = "<!-- /CURSOR_SUMMARY -->"
+BUGBOT_SUMMARY = re.compile(
+    rf"(?ms)({re.escape(BUGBOT_START)}.*?{re.escape(BUGBOT_END)})\s*\Z"
+)
 FORBIDDEN_PATTERNS = (
-    (re.compile(r"<!--\s*CURSOR_SUMMARY", re.IGNORECASE), "Cursor summary marker"),
     (re.compile(r"generated (?:with|by|using) (?:Claude|Codex|ChatGPT|OpenAI)", re.IGNORECASE), "AI attribution"),
     (re.compile(r"co-authored-by:.*(?:Claude|Codex|ChatGPT|OpenAI)", re.IGNORECASE), "AI co-author trailer"),
     (re.compile(r"reviewed by Cursor Bugbot", re.IGNORECASE), "AI reviewer attribution"),
     (re.compile(r"\b(?:TODO|TBD):?\b", re.IGNORECASE), "unfinished placeholder"),
 )
+
+
+def _ending_bugbot_summary(body: str) -> str | None:
+    match = BUGBOT_SUMMARY.search(body)
+    return match.group(1) if match else None
 
 
 def _section_body(body: str, heading: str) -> str:
@@ -31,6 +40,7 @@ def validate(
     issue: int | None = None,
     require_example: bool = False,
     require_live_evidence: bool = False,
+    existing_body: str | None = None,
 ) -> list[str]:
     """Return every validation error found in body."""
     errors: list[str] = []
@@ -86,8 +96,22 @@ def validate(
         if len(re.findall(trailer, body)) != 1:
             errors.append(f"expected exactly one Closes #{issue} trailer")
 
+    bugbot_summary = _ending_bugbot_summary(body)
+    existing_bugbot_summary = (
+        _ending_bugbot_summary(existing_body) if existing_body is not None else None
+    )
+    if existing_bugbot_summary is not None:
+        if bugbot_summary != existing_bugbot_summary:
+            errors.append("ending Bugbot summary must be preserved exactly")
+    elif bugbot_summary is not None:
+        errors.append("Bugbot summary must come unchanged from the existing PR body")
+
+    authored_body = body.replace(bugbot_summary, "", 1) if bugbot_summary else body
+    if BUGBOT_START in authored_body or BUGBOT_END in authored_body:
+        errors.append("Bugbot summary markers must form one complete block at the end")
+
     for pattern, label in FORBIDDEN_PATTERNS:
-        if pattern.search(body):
+        if pattern.search(authored_body):
             errors.append(f"forbidden {label}")
 
     return errors
@@ -99,6 +123,11 @@ def main() -> int:
     parser.add_argument("--issue", type=int, help="required closing issue number")
     parser.add_argument("--require-example", action="store_true")
     parser.add_argument("--require-live-evidence", action="store_true")
+    parser.add_argument(
+        "--existing-body",
+        type=Path,
+        help="current live PR body used to verify an ending Bugbot summary",
+    )
     args = parser.parse_args()
 
     errors = validate(
@@ -106,6 +135,11 @@ def main() -> int:
         issue=args.issue,
         require_example=args.require_example,
         require_live_evidence=args.require_live_evidence,
+        existing_body=(
+            args.existing_body.read_text(encoding="utf-8")
+            if args.existing_body is not None
+            else None
+        ),
     )
     if errors:
         for error in errors:

@@ -1,4 +1,4 @@
 interface:
   display_name: "PR Description"
   short_description: "Draft rich, evidence-backed PR descriptions"
-  default_prompt: "Use $pr-description to draft or refresh a rich, code-grounded pull request description."
+  default_prompt: "Use $pr-description to draft or refresh a rich, code-grounded pull request description, exactly preserving any Bugbot summary already appended at the end."

@@ -235,8 +235,11 @@ Repeat CI and Bugbot until both are clean on the latest SHA.
 
 Invoke `pr-description` again against the final base and head after CI and
 Bugbot. Refresh the live body if the implementation, test evidence, examples,
-review path, or risk changed; remove generated summaries and AI attribution;
-rerun the validator; and verify the resulting GitHub body.
+review path, or risk changed. Before rewriting, fetch the live body; if Bugbot
+has appended a summary at the end, preserve that complete block byte-for-byte
+in the refreshed body and pass the live snapshot to the validator with
+`--existing-body`. Remove other generated summaries and AI attribution, then
+verify the resulting GitHub body.
 
 Before handoff, fetch the current PR base and verify it is an ancestor of HEAD.
 If it moved, rebase, re-squash/amend, and repeat the local/remote gates. Verify

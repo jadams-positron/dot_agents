@@ -118,6 +118,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIn("current worktree and branch names as authoritative", prompt)
         self.assertIn("independent issue", prompt)
         self.assertIn("pr-description skill as the sole PR-body authoring path", prompt)
+        self.assertIn("preserve any Bugbot summary appended at the end byte-for-byte", prompt)
         self.assertNotIn("branch named work#42", prompt)
 
     def test_worker_prompt_assigns_one_native_stack_owner(self) -> None:
@@ -128,6 +129,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIn("gh stack sync", prompt)
         self.assertIn("Do not create another worktree", prompt)
         self.assertIn("pr-description as the sole body-authoring path", prompt)
+        self.assertIn("preserve any Bugbot summary appended at the end byte-for-byte", prompt)
 
     def test_worker_prompt_supports_custom_names_and_instructions(self) -> None:
         prompt = worker_prompt(
