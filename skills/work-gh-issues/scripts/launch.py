@@ -10,6 +10,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -579,6 +580,11 @@ def command_error(message: str, json_mode: bool, exit_code: int = 2) -> int:
     return exit_code
 
 
+def new_batch_id(repository: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", repository.lower()).strip("-")
+    return f"{slug}-{uuid.uuid4().hex[:12]}"
+
+
 def main() -> int:
     args = parse_args()
     if shutil.which("git") is None:
@@ -629,6 +635,7 @@ def main() -> int:
     current = current_agent_deck_session(args.profile)
     parent = args.parent or (current.get("id") if current else None)
     manifest: dict[str, Any] = {
+        "batch_id": new_batch_id(repository),
         "repository": repository,
         "repo_path": str(repo),
         "profile": args.profile,

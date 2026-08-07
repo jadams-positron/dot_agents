@@ -143,7 +143,8 @@ parent linkage supplies status notifications without coupling execution.
 The launcher scopes every Agent Deck lookup to `--profile`, uses `--parent` or
 the current Agent Deck session for durable child events, and requests the Codex
 completion sentinel. With `--json`, it returns one manifest containing each
-owner's stable session ID, issue chain, branch, worktree, group, and parent.
+batch's stable ID plus each owner's stable session ID, issue chain, branch,
+worktree, group, and parent. Conductors store concurrent manifests by batch ID.
 
 Immediately before creating anything, the launcher revalidates that each issue
 is still open and unclaimed. A blocked issue is accepted only when every open

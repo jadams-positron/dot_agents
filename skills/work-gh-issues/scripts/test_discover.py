@@ -28,6 +28,7 @@ from launch import (
     launch_command,
     launch_failure_detail,
     normalize_launch_result,
+    new_batch_id,
     parse_dependencies,
     stack_chains,
     topological_order,
@@ -61,6 +62,14 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(
             agent_deck_command("work", "list", "--json"),
             ["agent-deck", "-p", "work", "list", "--json"],
+        )
+
+    @patch("launch.uuid.uuid4")
+    def test_batch_ids_are_stable_manifest_keys(self, uuid4) -> None:
+        uuid4.return_value.hex = "0123456789abcdef"
+        self.assertEqual(
+            new_batch_id("Positron-AI/api.positron.ai"),
+            "positron-ai-api-positron-ai-0123456789ab",
         )
 
     def test_worktree_porcelain_preserves_branch_ownership(self) -> None:

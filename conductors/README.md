@@ -13,7 +13,7 @@ Deck owns mutable state, learnings, and logs under
 | Instructions | Source-controlled `AGENTS.md` files linked into each conductor by `--instructions-md`. |
 | Policy | Per-conductor authorization and escalation rules linked with `--policy-md`. |
 | Heartbeat | Small workflow-specific checks linked with `--heartbeat-rules-md`; Agent Deck supplies scheduling and durable inbox delivery. |
-| State | Agent Deck-managed `state.json`, `LEARNINGS.md`, and `task-log.md`; these are runtime data and are not committed. |
+| State | Agent Deck-managed `state.json`, `LEARNINGS.md`, and `task-log.md`; concurrent work is stored in a batch-ID-keyed `batches` map, and runtime data is not committed. |
 | Workers | Parent-linked Agent Deck child sessions; stable session IDs, not titles, are used for automation. |
 
 ## Conductors

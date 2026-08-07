@@ -25,8 +25,8 @@ At the start of every session or resume, before handling the request:
 3. Resolve the active profile and this session's stable ID with
    `agent-deck session current --json`, then reconcile parent-linked children
    with `agent-deck session children --json`.
-4. Create or update `state.json` with a compact, valid JSON summary of the
-   active batch and child IDs. Never store secrets or full output dumps.
+4. Create or update `state.json` with a compact, valid JSON summary of every
+   concurrent batch and child ID. Never store secrets or full output dumps.
 
 Append every material discovery, launch, supervision action, and escalation to
 `task-log.md` with a timestamp and reason. Do this before the final response so
@@ -57,24 +57,47 @@ the next turn can recover even after compaction or restart.
    unresolved ordering, and prerequisites outside the selected set.
 6. Run the bundled launcher with the resolved `--profile`, this conductor's
    `--parent` session ID, and `--json`.
-7. Persist the returned aggregate manifest in `state.json` before reporting the
-   launch. Preserve repository, issue chains, stable owner session IDs,
-   branches, worktrees, group, parent, base branch, and last known status.
+7. Persist the returned aggregate manifest under
+   `state.json.batches[manifest.batch_id]` before reporting the launch. Never
+   replace or discard another active batch. Preserve repository, issue chains,
+   stable owner session IDs, branches, worktrees, group, parent, base branch,
+   failures, and last known status.
 
 One Agent Deck child owns each independent issue or entire linear PR chain.
 Never launch concurrent writers for members of the same chain.
+
+## Batch State
+
+Use `schema_version: 2` and a `batches` object keyed by the launcher's stable
+`batch_id`. Each value contains one repository launch manifest plus its current
+status and timestamps. Identify every launched owner by its stable Agent Deck
+session ID inside its batch; repository names and session titles are display
+metadata, not identity.
+
+Multiple batches may be active at once, including multiple batches for the same
+repository. A child belongs to exactly one batch. During reconciliation, record
+an unknown parent-linked child in `unassigned_children` and escalate instead of
+guessing ownership. When a batch reaches a terminal completion-contract state,
+append its final summary to `task-log.md` and remove it from `batches` so
+`state.json` remains small.
+
+Migrate legacy state atomically: replace `active_batch: null` with `batches: {}`;
+if `active_batch` contains a manifest, require or derive its `batch_id`, store it
+under that key, and only then remove `active_batch`. Preserve unrelated fields.
 
 ## Supervision
 
 - Drain `agent-deck inbox drain self --json` at every turn boundary and
   heartbeat.
 - Use `agent-deck session children --json` to inspect only parent-linked
-  workers. Read a child's output after waiting, error, or completion events.
+  workers. Reconcile each child against owner IDs across every batch, then read
+  its output after waiting, error, or completion events.
 - Send messages only to waiting workers, and only when `POLICY.md` authorizes
   the answer. Use `agent-deck session approve` for visible Codex approval
   menus; never send a digit through `session send`.
 - A worker is complete only when Agent Deck records its completion sentinel.
-  Update `state.json` and `task-log.md` after every action or material event.
+  Update only its owning batch plus `task-log.md` after every action or material
+  event; do not disturb other batches.
 - Never launch replacement work automatically after a child completes.
 
 ## Completion Contract
