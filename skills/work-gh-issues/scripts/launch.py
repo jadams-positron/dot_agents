@@ -13,7 +13,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from discover import issue_numbers, repository_for_path
+from discover import (
+    agent_deck_command,
+    default_agent_deck_profile,
+    discover_issues,
+    issue_numbers,
+    parse_positive_issue_numbers,
+    repository_for_path,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,6 +54,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model", default="gpt-5.6-sol", help="Codex model ID.")
     parser.add_argument(
+        "--profile",
+        default=default_agent_deck_profile(),
+        help="Agent Deck profile (default: current profile or default).",
+    )
+    parser.add_argument(
+        "--parent",
+        help="Parent Agent Deck session ID (default: current session when available).",
+    )
+    parser.add_argument(
         "--depends-on",
         action="append",
         default=[],
@@ -60,6 +76,11 @@ def parse_args() -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Print launch commands without creating sessions or worktrees.",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit one aggregate launch manifest as JSON.",
     )
     return parser.parse_args()
 
@@ -75,34 +96,7 @@ def collect_issues(raw_values: list[str]) -> list[int]:
             raise ValueError("no issue numbers provided") from exc
         raw_values = [answer]
 
-    tokens = [
-        token
-        for value in raw_values
-        for token in re.split(r"[\s,]+", value.strip())
-        if token
-    ]
-    if not tokens:
-        raise ValueError("no issue numbers provided")
-
-    issues: list[int] = []
-    invalid: list[str] = []
-    seen: set[int] = set()
-    for token in tokens:
-        normalized = token.removeprefix("#")
-        if not normalized.isascii() or not normalized.isdigit():
-            invalid.append(token)
-            continue
-        issue = int(normalized)
-        if issue < 1:
-            invalid.append(token)
-            continue
-        if issue not in seen:
-            seen.add(issue)
-            issues.append(issue)
-
-    if invalid:
-        raise ValueError(f"invalid issue number(s): {', '.join(invalid)}")
-    return issues
+    return parse_positive_issue_numbers(raw_values)
 
 
 def validate_repo(repo: Path) -> Path:
@@ -214,6 +208,30 @@ def repository_default_branch(repository: str) -> str:
     return branch
 
 
+def validate_default_branch_checkout(repo: Path, default_branch: str) -> None:
+    inside = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--is-inside-work-tree"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    branch = subprocess.run(
+        ["git", "-C", str(repo), "branch", "--show-current"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    current = branch.stdout.strip()
+    if inside.returncode != 0 or inside.stdout.strip() != "true":
+        raise ValueError(f"repository must be a real worktree: {repo}")
+    if branch.returncode != 0 or current != default_branch:
+        display = current or "detached HEAD"
+        raise ValueError(
+            f"repository must be checked out on default branch {default_branch!r}; "
+            f"found {display!r}"
+        )
+
+
 def worker_prompt(
     repository: str,
     issues: list[int],
@@ -261,6 +279,8 @@ def append_extra_instructions(prompt: str, extra_instructions: str) -> str:
 def launch_command(
     repo: Path,
     repository: str,
+    profile: str,
+    parent: str | None,
     group: str,
     model: str,
     issues: list[int],
@@ -269,8 +289,8 @@ def launch_command(
     extra_instructions: str,
 ) -> list[str]:
     name = f"{name_prefix}#{issues[0]}"
-    return [
-        "agent-deck",
+    command = agent_deck_command(
+        profile,
         "launch",
         str(repo),
         "--title",
@@ -287,6 +307,7 @@ def launch_command(
         "--new-branch",
         "--location",
         "subdirectory",
+        "--assert-done",
         "--message",
         worker_prompt(
             repository,
@@ -296,12 +317,15 @@ def launch_command(
             extra_instructions,
         ),
         "--json",
-    ]
+    )
+    if parent is not None:
+        command.extend(["--parent", parent])
+    return command
 
 
-def read_agent_deck_sessions() -> list[dict[str, Any]]:
+def read_agent_deck_sessions(profile: str) -> list[dict[str, Any]]:
     result = subprocess.run(
-        ["agent-deck", "list", "--json"],
+        agent_deck_command(profile, "list", "--json"),
         check=False,
         capture_output=True,
         text=True,
@@ -317,42 +341,15 @@ def read_agent_deck_sessions() -> list[dict[str, Any]]:
     return sessions
 
 
-def launched_branch(repository: str, issue: int, name_prefix: str) -> str:
-    """Resolve Agent Deck's actual, possibly prefixed branch name."""
-    title = f"{name_prefix}#{issue}"
-    candidates: list[dict[str, Any]] = []
-    for session in read_agent_deck_sessions():
-        if session.get("archived", False) or session.get("title") != title:
-            continue
-        path_value = session.get("path")
-        found = repository_for_path(Path(path_value)) if path_value else None
-        if found is not None and found[0].lower() == repository.lower():
-            candidates.append(session)
-    if not candidates:
-        raise ValueError(f"could not find the launched Agent Deck session for #{issue}")
-
-    session = max(candidates, key=lambda item: item.get("created_at", ""))
-    path = Path(session["path"])
-    result = subprocess.run(
-        ["git", "-C", str(path), "branch", "--show-current"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    branch = result.stdout.strip()
-    if result.returncode != 0 or not branch:
-        raise ValueError(f"could not resolve the launched branch for #{issue}")
-    return branch
-
-
 def check_collisions(
     repo: Path,
     repository: str,
+    profile: str,
     issues: list[int],
     name_prefix: str,
 ) -> None:
     collisions: list[str] = []
-    active_sessions = read_agent_deck_sessions()
+    active_sessions = read_agent_deck_sessions(profile)
 
     for issue in issues:
         name = f"{name_prefix}#{issue}"
@@ -394,17 +391,204 @@ def check_collisions(
         raise ValueError("existing launch target(s): " + ", ".join(collisions))
 
 
+def dependency_contains(
+    child: int, ancestor: int, dependencies: dict[int, int]
+) -> bool:
+    current = child
+    seen: set[int] = set()
+    while current in dependencies and current not in seen:
+        seen.add(current)
+        current = dependencies[current]
+        if current == ancestor:
+            return True
+    return False
+
+
+def validate_selected_issues(
+    discovery: dict[str, Any],
+    issues: list[int],
+    dependencies: dict[int, int],
+) -> None:
+    selected = set(issues)
+    records: dict[int, tuple[str, dict[str, Any]]] = {}
+    for category in ("available", "in_progress", "blocked"):
+        for record in discovery.get(category, []):
+            records[record["number"]] = (category, record)
+
+    errors: list[str] = []
+    for issue in issues:
+        found = records.get(issue)
+        if found is None:
+            errors.append(f"#{issue} is not an open issue")
+            continue
+        category, record = found
+        if category == "available":
+            continue
+        if category == "in_progress":
+            errors.append(f"#{issue}: {'; '.join(record.get('reasons', []))}")
+            continue
+
+        blockers = set(record.get("blocked_by", []))
+        other_reasons = [
+            reason
+            for reason in record.get("reasons", [])
+            if not reason.startswith("blocked by #")
+        ]
+        outside = blockers - selected
+        unordered = {
+            blocker
+            for blocker in blockers & selected
+            if not dependency_contains(issue, blocker, dependencies)
+        }
+        if outside:
+            other_reasons.append(
+                "blocked by unselected "
+                + ", ".join(f"#{number}" for number in sorted(outside))
+            )
+        if unordered:
+            other_reasons.append(
+                "missing dependency order after "
+                + ", ".join(f"#{number}" for number in sorted(unordered))
+            )
+        if not blockers:
+            other_reasons.append("blocked by an unresolved dependency or label")
+        if other_reasons:
+            errors.append(f"#{issue}: {'; '.join(dict.fromkeys(other_reasons))}")
+
+    if errors:
+        raise ValueError(
+            "selected issue(s) are no longer launchable: " + " | ".join(errors)
+        )
+
+
+def current_agent_deck_session(profile: str) -> dict[str, Any] | None:
+    result = subprocess.run(
+        agent_deck_command(profile, "session", "current", "--json"),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        current = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(current, dict) or not current.get("id"):
+        return None
+    return current
+
+
+def parse_json_object(value: str, source: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{source} returned invalid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise TypeError(f"{source} returned invalid JSON")
+    return parsed
+
+
+def session_details(profile: str, session_id: str) -> dict[str, Any]:
+    result = subprocess.run(
+        agent_deck_command(profile, "session", "show", session_id, "--json"),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "command failed"
+        raise ValueError(f"could not inspect launched session {session_id}: {detail}")
+    return parse_json_object(result.stdout, "agent-deck session show")
+
+
+def normalize_launch_result(
+    payload: dict[str, Any],
+    profile: str,
+    expected_parent: str | None,
+) -> dict[str, Any]:
+    session_id = payload.get("session_id") or payload.get("id")
+    if not isinstance(session_id, str) or not session_id:
+        raise ValueError("agent-deck launch did not return a session ID")
+
+    details = session_details(profile, session_id)
+    worktree = (
+        payload.get("worktree_path")
+        or details.get("worktree_path")
+        or details.get("path")
+    )
+    branch = payload.get("worktree_branch") or details.get("worktree_branch")
+    if worktree and not branch:
+        result = subprocess.run(
+            ["git", "-C", str(worktree), "branch", "--show-current"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            branch = result.stdout.strip()
+
+    parent_id = (
+        payload.get("parent_id")
+        or details.get("parent_id")
+        or details.get("parent_session_id")
+    )
+    if expected_parent is not None and parent_id != expected_parent:
+        raise ValueError(
+            f"launched session {session_id} has parent {parent_id!r}; "
+            f"expected {expected_parent!r}"
+        )
+    if not worktree or not branch:
+        raise ValueError(
+            f"agent-deck launch did not return a usable worktree for {session_id}"
+        )
+
+    return {
+        "session_id": session_id,
+        "parent_id": parent_id,
+        "title": payload.get("title") or details.get("title"),
+        "group": payload.get("group") or details.get("group"),
+        "status": payload.get("status") or details.get("status"),
+        "worktree": str(worktree),
+        "branch": str(branch),
+    }
+
+
+def launch_failure_detail(
+    result: subprocess.CompletedProcess[str], repo: Path
+) -> str:
+    detail = result.stderr.strip() or result.stdout.strip() or "agent-deck launch failed"
+    lowered = detail.lower()
+    if "trust-scripts" in lowered or "worktree-setup.sh" in lowered:
+        detail += (
+            " Inspect the repository scripts, then explicitly approve their current "
+            f"content with: agent-deck worktree trust-scripts {shlex.quote(str(repo))}"
+        )
+    return detail
+
+
+def emit_status(message: str, json_mode: bool) -> None:
+    print(message, file=sys.stderr if json_mode else sys.stdout, flush=True)
+
+
+def command_error(message: str, json_mode: bool, exit_code: int = 2) -> int:
+    if json_mode:
+        print(json.dumps({"success": False, "error": message}, indent=2))
+    else:
+        print(f"error: {message}", file=sys.stderr)
+    return exit_code
+
+
 def main() -> int:
     args = parse_args()
     if shutil.which("git") is None:
-        print("error: git is not installed or not on PATH", file=sys.stderr)
-        return 2
+        return command_error("git is not installed or not on PATH", args.json)
     if shutil.which("agent-deck") is None:
-        print("error: agent-deck is not installed or not on PATH", file=sys.stderr)
-        return 2
+        return command_error(
+            "agent-deck is not installed or not on PATH", args.json
+        )
     if shutil.which("gh") is None:
-        print("error: gh is not installed or not on PATH", file=sys.stderr)
-        return 2
+        return command_error("gh is not installed or not on PATH", args.json)
 
     try:
         issues = collect_issues(args.issues)
@@ -429,17 +613,40 @@ def main() -> int:
         dependencies = parse_dependencies(args.depends_on, issues)
         chains = stack_chains(issues, dependencies)
         default_branch = repository_default_branch(repository)
-        check_collisions(repo, repository, issues, args.name_prefix)
+        validate_default_branch_checkout(repo, default_branch)
+        discovery = discover_issues(repository, args.profile)
+        validate_selected_issues(discovery, issues, dependencies)
+        check_collisions(
+            repo,
+            repository,
+            args.profile,
+            issues,
+            args.name_prefix,
+        )
     except (TypeError, ValueError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+        return command_error(str(exc), args.json)
 
-    failures: list[int] = []
+    current = current_agent_deck_session(args.profile)
+    parent = args.parent or (current.get("id") if current else None)
+    manifest: dict[str, Any] = {
+        "repository": repository,
+        "repo_path": str(repo),
+        "profile": args.profile,
+        "group": group,
+        "default_branch": default_branch,
+        "parent_id": parent,
+        "dry_run": args.dry_run,
+        "owners": [],
+        "failures": [],
+    }
+
     for chain in chains:
         root_issue = chain[0]
         command = launch_command(
             repo,
             repository,
+            args.profile,
+            parent,
             group,
             args.model,
             chain,
@@ -447,41 +654,70 @@ def main() -> int:
             args.name_prefix,
             extra_instructions,
         )
-        if args.dry_run:
-            print(shlex.join(command))
-            continue
-
         issue_refs = " -> ".join(f"#{issue}" for issue in chain)
         owner_name = f"{args.name_prefix}#{root_issue}"
-        print(f"Launching {issue_refs} as {owner_name}...", flush=True)
-        result = subprocess.run(command, check=False)
-        if result.returncode != 0:
-            failures.extend(chain)
+        if args.dry_run:
+            manifest["owners"].append(
+                {
+                    "issues": chain,
+                    "owner": owner_name,
+                    "status": "planned",
+                    "command": command,
+                }
+            )
+            if not args.json:
+                print(shlex.join(command))
             continue
+
+        emit_status(f"Launching {issue_refs} as {owner_name}...", args.json)
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            manifest["failures"].append(
+                {
+                    "issues": chain,
+                    "owner": owner_name,
+                    "error": launch_failure_detail(result, repo),
+                }
+            )
+            continue
+        payload: dict[str, Any] = {}
         try:
-            branch = launched_branch(repository, root_issue, args.name_prefix)
+            payload = parse_json_object(result.stdout, "agent-deck launch")
+            owner = normalize_launch_result(payload, args.profile, parent)
+            owner.update({"issues": chain, "owner": owner_name})
+            manifest["owners"].append(owner)
             kind = "stack" if len(chain) > 1 else "issue"
-            print(
+            emit_status(
                 f"{kind.title()} {issue_refs}: owner {owner_name} "
-                f"({branch}) -> rooted on {default_branch}"
+                f"({owner['branch']}) -> rooted on {default_branch}",
+                args.json,
             )
         except (TypeError, ValueError) as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            failures.extend(chain)
-
-    if failures:
-        print(
-            "Failed issue launch(es): " + ", ".join(f"#{issue}" for issue in failures),
-            file=sys.stderr,
-        )
-        return 1
+            failure = {"issues": chain, "owner": owner_name, "error": str(exc)}
+            session_id = payload.get("session_id") or payload.get("id")
+            if isinstance(session_id, str) and session_id:
+                failure.update({"session_id": session_id, "launched": True})
+            manifest["failures"].append(failure)
 
     action = "Prepared" if args.dry_run else "Launched"
-    print(
-        f"{action} {len(chains)} owner session(s) for {len(issues)} issue(s) "
-        f"in group {group}."
+    manifest["success"] = not manifest["failures"]
+    manifest["summary"] = (
+        f"{action} {len(manifest['owners'])} owner session(s) for "
+        f"{len(issues)} issue(s) in group {group}."
     )
-    return 0
+    if args.json:
+        print(json.dumps(manifest, indent=2))
+    else:
+        print(manifest["summary"])
+        for failure in manifest["failures"]:
+            refs = ", ".join(f"#{issue}" for issue in failure["issues"])
+            print(f"Failed {refs}: {failure['error']}", file=sys.stderr)
+    return 0 if manifest["success"] else 1
 
 
 if __name__ == "__main__":

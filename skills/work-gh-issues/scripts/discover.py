@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -22,6 +23,22 @@ ISSUE_PATTERNS = (
     re.compile(r"(?<![A-Za-z0-9])ja-(?P<number>\d+)(?:-|$)", re.IGNORECASE),
     re.compile(r"(?<![A-Za-z0-9])issue[-/#](?P<number>\d+)(?:-|$)", re.IGNORECASE),
 )
+ISSUE_DETAIL_FIELDS = (
+    "number,title,body,comments,labels,assignees,state,url,blockedBy,blocking,"
+    "updatedAt"
+)
+
+
+def default_agent_deck_profile() -> str:
+    return (
+        os.environ.get("AGENTDECK_PROFILE")
+        or os.environ.get("AGENT_DECK_PROFILE")
+        or "default"
+    )
+
+
+def agent_deck_command(profile: str, *args: str) -> list[str]:
+    return ["agent-deck", "-p", profile, *args]
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -97,6 +114,69 @@ def repository_for_path(path: Path) -> tuple[str, Path] | None:
     return repository, root
 
 
+def parse_worktree_porcelain(value: str) -> list[dict[str, str]]:
+    worktrees: list[dict[str, str]] = []
+    current: dict[str, str] = {}
+    for line in value.splitlines() + [""]:
+        if not line:
+            if current:
+                worktrees.append(current)
+                current = {}
+            continue
+        key, _, field_value = line.partition(" ")
+        current[key] = field_value
+    return worktrees
+
+
+def default_branch_worktree(repo_root: Path, repository: str) -> Path | None:
+    github_default = run(
+        [
+            "gh",
+            "repo",
+            "view",
+            repository,
+            "--json",
+            "defaultBranchRef",
+            "--jq",
+            ".defaultBranchRef.name",
+        ]
+    )
+    if github_default.returncode == 0 and github_default.stdout.strip():
+        default_branch = github_default.stdout.strip()
+    else:
+        default_ref = run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "symbolic-ref",
+                "--short",
+                "refs/remotes/origin/HEAD",
+            ]
+        )
+        if default_ref.returncode != 0:
+            return None
+        default_branch = default_ref.stdout.strip().removeprefix("origin/")
+
+    result = run(
+        ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"]
+    )
+    if result.returncode != 0:
+        return None
+    expected_ref = f"refs/heads/{default_branch}"
+    for worktree in parse_worktree_porcelain(result.stdout):
+        path_value = worktree.get("worktree")
+        if worktree.get("branch") != expected_ref or not path_value:
+            continue
+        path = Path(path_value)
+        inside = run(
+            ["git", "-C", str(path), "rev-parse", "--is-inside-work-tree"]
+        )
+        if inside.returncode == 0 and inside.stdout.strip() == "true":
+            return path.resolve()
+    return None
+
+
 def parse_activity(value: str) -> float:
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
@@ -108,10 +188,10 @@ def activity_iso(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp).astimezone().isoformat(timespec="seconds")
 
 
-def recent_repositories(limit: int) -> list[dict[str, Any]]:
+def recent_repositories(limit: int, profile: str = "default") -> list[dict[str, Any]]:
     records: dict[str, dict[str, Any]] = {}
 
-    sessions = run_json(["agent-deck", "list", "--json"])
+    sessions = run_json(agent_deck_command(profile, "list", "--json"))
     if not isinstance(sessions, list):
         raise TypeError("Agent Deck returned an invalid session registry")
     for session in sessions:
@@ -168,25 +248,36 @@ def issue_numbers(text: str) -> set[int]:
     return numbers
 
 
-def find_checkout(repository: str) -> Path | None:
+def find_repository_root(repository: str, profile: str = "default") -> Path | None:
     conventional = CHECKOUT_BASE / repository
     found = repository_for_path(conventional)
     if found is not None and found[0].lower() == repository.lower():
         return found[1]
-    for record in recent_repositories(100):
+    for record in recent_repositories(100, profile):
         if record["repository"].lower() == repository.lower():
-            return Path(record["path"])
+            found = repository_for_path(Path(record["path"]))
+            if found is not None:
+                return found[1]
     return None
 
 
-def resolve_repository(value: str) -> dict[str, str | None]:
+def find_checkout(repository: str, profile: str = "default") -> Path | None:
+    root = find_repository_root(repository, profile)
+    return default_branch_worktree(root, repository) if root is not None else None
+
+
+def resolve_repository(value: str, profile: str = "default") -> dict[str, str | None]:
     candidate = Path(value).expanduser()
     if candidate.exists():
         found = repository_for_path(candidate)
         if found is None:
             raise ValueError(f"path has no GitHub origin: {candidate}")
         repository, root = found
-        return {"repository": repository, "local_path": str(root)}
+        checkout = default_branch_worktree(root, repository)
+        return {
+            "repository": repository,
+            "local_path": str(checkout) if checkout else None,
+        }
 
     repository = parse_repository(value)
     if repository is None and re.fullmatch(r"[^/\s]+/[^/\s]+", value):
@@ -195,16 +286,16 @@ def resolve_repository(value: str) -> dict[str, str | None]:
         raise ValueError(
             "repository must be a GitHub URL, OWNER/REPO, or checkout path"
         )
-    checkout = find_checkout(repository)
+    checkout = find_checkout(repository, profile)
     return {
         "repository": repository,
         "local_path": str(checkout) if checkout else None,
     }
 
 
-def active_session_issues(repository: str) -> set[int]:
+def active_session_issues(repository: str, profile: str = "default") -> set[int]:
     numbers: set[int] = set()
-    sessions = run_json(["agent-deck", "list", "--json"])
+    sessions = run_json(agent_deck_command(profile, "list", "--json"))
     for session in sessions:
         if session.get("archived", False):
             continue
@@ -303,14 +394,15 @@ def open_blocker_numbers(blocked_by: Any) -> list[int]:
     )
 
 
-def discover_issues(repository: str) -> dict[str, Any]:
+def discover_issues(repository: str, profile: str = "default") -> dict[str, Any]:
     if not re.fullmatch(r"[^/\s]+/[^/\s]+", repository):
         raise ValueError("repository must be OWNER/REPO")
 
-    checkout = find_checkout(repository)
-    session_numbers = active_session_issues(repository)
-    worktree_numbers = worktree_issues(checkout)
-    branch_numbers = branch_issues(checkout)
+    root = find_repository_root(repository, profile)
+    checkout = default_branch_worktree(root, repository) if root is not None else None
+    session_numbers = active_session_issues(repository, profile)
+    worktree_numbers = worktree_issues(root)
+    branch_numbers = branch_issues(root)
     pr_numbers = open_pr_issues(repository)
     issues = run_json(
         [
@@ -365,7 +457,7 @@ def discover_issues(repository: str) -> dict[str, Any]:
             "updated_at": issue["updatedAt"],
         }
         if blocked_reasons:
-            record["reasons"] = blocked_reasons
+            record["reasons"] = blocked_reasons + progress_reasons
             result["blocked"].append(record)
         elif progress_reasons:
             record["reasons"] = progress_reasons
@@ -382,6 +474,60 @@ def discover_issues(repository: str) -> dict[str, Any]:
         "blocked": len(result["blocked"]),
     }
     return result
+
+
+def inspect_issues(repository: str, issue_numbers_to_inspect: list[int]) -> dict[str, Any]:
+    if not re.fullmatch(r"[^/\s]+/[^/\s]+", repository):
+        raise ValueError("repository must be OWNER/REPO")
+
+    issues = []
+    for number in issue_numbers_to_inspect:
+        issue = run_json(
+            [
+                "gh",
+                "issue",
+                "view",
+                str(number),
+                "--repo",
+                repository,
+                "--json",
+                ISSUE_DETAIL_FIELDS,
+            ]
+        )
+        if not isinstance(issue, dict) or issue.get("number") != number:
+            raise TypeError(f"GitHub returned invalid details for issue #{number}")
+        issues.append(issue)
+    return {"repository": repository, "issues": issues}
+
+
+def parse_positive_issue_numbers(values: list[str]) -> list[int]:
+    tokens = [
+        token
+        for value in values
+        for token in re.split(r"[\s,]+", value.strip())
+        if token
+    ]
+    if not tokens:
+        raise ValueError("no issue numbers provided")
+
+    numbers: list[int] = []
+    invalid: list[str] = []
+    seen: set[int] = set()
+    for token in tokens:
+        normalized = token.removeprefix("#")
+        if not normalized.isascii() or not normalized.isdigit():
+            invalid.append(token)
+            continue
+        number = int(normalized)
+        if number < 1:
+            invalid.append(token)
+            continue
+        if number not in seen:
+            seen.add(number)
+            numbers.append(number)
+    if invalid:
+        raise ValueError(f"invalid issue number(s): {', '.join(invalid)}")
+    return numbers
 
 
 def print_repositories(records: list[dict[str, Any]]) -> None:
@@ -403,6 +549,14 @@ def print_issue_section(name: str, issues: list[dict[str, Any]]) -> None:
         print(f"  #{issue['number']} {issue['title']}{suffix}")
 
 
+def add_profile_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--profile",
+        default=default_agent_deck_profile(),
+        help="Agent Deck profile (default: current profile or default).",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -412,36 +566,46 @@ def main() -> int:
     )
     repos_parser.add_argument("--limit", type=int, default=5)
     repos_parser.add_argument("--json", action="store_true")
+    add_profile_argument(repos_parser)
 
     resolve_parser = subparsers.add_parser(
         "resolve", help="Resolve a repository URL, slug, or checkout path."
     )
     resolve_parser.add_argument("repository")
     resolve_parser.add_argument("--json", action="store_true")
+    add_profile_argument(resolve_parser)
 
     issues_parser = subparsers.add_parser(
         "issues", help="List available, in-progress, and blocked open issues."
     )
     issues_parser.add_argument("repository", help="GitHub OWNER/REPO.")
     issues_parser.add_argument("--json", action="store_true")
+    add_profile_argument(issues_parser)
+
+    inspect_parser = subparsers.add_parser(
+        "inspect", help="Fetch planning details for selected issues."
+    )
+    inspect_parser.add_argument("repository", help="GitHub OWNER/REPO.")
+    inspect_parser.add_argument("issues", nargs="+", help="Issue numbers.")
+    inspect_parser.add_argument("--json", action="store_true")
 
     args = parser.parse_args()
     try:
         if args.command == "repos":
-            records = recent_repositories(args.limit)
+            records = recent_repositories(args.limit, args.profile)
             if args.json:
                 print(json.dumps(records, indent=2))
             else:
                 print_repositories(records)
         elif args.command == "resolve":
-            result = resolve_repository(args.repository)
+            result = resolve_repository(args.repository, args.profile)
             if args.json:
                 print(json.dumps(result, indent=2))
             else:
                 print(f"Repository: {result['repository']}")
                 print(f"Local checkout: {result['local_path'] or 'not found'}")
-        else:
-            result = discover_issues(args.repository)
+        elif args.command == "issues":
+            result = discover_issues(args.repository, args.profile)
             if args.json:
                 print(json.dumps(result, indent=2))
             else:
@@ -450,6 +614,26 @@ def main() -> int:
                 print_issue_section("Available", result["available"])
                 print_issue_section("Already in progress", result["in_progress"])
                 print_issue_section("Blocked", result["blocked"])
+        else:
+            numbers = parse_positive_issue_numbers(args.issues)
+            result = inspect_issues(args.repository, numbers)
+            if args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                print(f"Repository: {result['repository']}")
+                for issue in result["issues"]:
+                    blocked_by = open_blocker_numbers(issue.get("blockedBy"))
+                    blocking = sorted(
+                        node["number"]
+                        for node in issue.get("blocking", {}).get("nodes", [])
+                        if isinstance(node.get("number"), int)
+                        and str(node.get("state", "OPEN")).upper() == "OPEN"
+                    )
+                    print(
+                        f"  #{issue['number']} {issue['title']} "
+                        f"[blocked by: {blocked_by or 'none'}; "
+                        f"blocking: {blocking or 'none'}]"
+                    )
     except (TypeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

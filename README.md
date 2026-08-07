@@ -1,18 +1,27 @@
 # dot_agents
 
-A collection of AI agent skills, modeled after `~/.agents` and kept in sync
-across machines with [gaal](https://github.com/getgaal/gaal).
+A collection of AI agent skills and Agent Deck conductors, kept in sync across
+machines with [gaal](https://github.com/getgaal/gaal).
 
 ## Layout
 
-Modeled after `~/.agents`: one directory per skill under `skills/`, each with a
-`SKILL.md` (and any supporting files).
+Skills follow the `~/.agents` layout. Conductors keep their source-controlled
+instructions and policies under `conductors/`; Agent Deck stores their mutable
+runtime state separately.
 
 ```
+conductors/
+  <conductor-name>/
+    AGENTS.md
+    POLICY.md
+    HEARTBEAT_RULES.md
 skills/
   <skill-name>/
     SKILL.md
 ```
+
+See [conductors/README.md](conductors/README.md) for the Agent Deck design,
+configured conductors, setup commands, and verification.
 
 ## Skills
 

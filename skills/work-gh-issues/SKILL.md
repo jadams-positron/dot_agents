@@ -16,7 +16,8 @@ request. If none is present:
 1. Run:
 
    ```bash
-   python3 <skill-dir>/scripts/discover.py repos --limit 5 --json
+   python3 <skill-dir>/scripts/discover.py repos \
+     --profile <agent-deck-profile> --limit 5 --json
    ```
 
 2. Ask which repository to use. Include the five numbered candidates with
@@ -31,12 +32,16 @@ local Git reflog activity under `~/code/github`.
 Resolve the selected URL, slug, or path, then run issue discovery:
 
 ```bash
-python3 <skill-dir>/scripts/discover.py resolve <selection> --json
-python3 <skill-dir>/scripts/discover.py issues OWNER/REPO --json
+python3 <skill-dir>/scripts/discover.py resolve <selection> \
+  --profile <agent-deck-profile> --json
+python3 <skill-dir>/scripts/discover.py issues OWNER/REPO \
+  --profile <agent-deck-profile> --json
 ```
 
-If `local_path` is null, ask for the local checkout path before launching. Do
-not clone a repository without explicit permission.
+`local_path` is returned only for a real worktree on the repository's default
+branch; a bare repository or feature-only worktree set is not a safe launch
+base. If it is null, ask for a default-branch checkout path before launching.
+Do not clone or create one without explicit permission.
 
 ## Select issues
 
@@ -63,6 +68,11 @@ Before launching, inspect every selected issue's title, body, comments,
 `blockedBy`, and `blocking` relationships. Also inspect enough of the current
 code to identify likely shared files, APIs, schemas, migrations, or generated
 artifacts. Build a dependency graph from evidence, not title similarity:
+
+```bash
+python3 <skill-dir>/scripts/discover.py inspect OWNER/REPO \
+  <issue> [<issue> ...] --json
+```
 
 - Add a hard edge when GitHub or the issue text says one issue depends on
   another, or when one issue produces an API/schema/artifact the other needs.
@@ -100,9 +110,10 @@ Run the bundled launcher instead of reconstructing commands:
 ```bash
 python3 <skill-dir>/scripts/launch.py \
   --repo <local-path> <issue> [<issue> ...] \
+  [--profile <agent-deck-profile>] [--parent <session-id>] \
   [--group <group>] [--name-prefix <prefix>] \
   [--instructions-file <path>] \
-  [--depends-on <child>:<immediate-parent> ...]
+  [--depends-on <child>:<immediate-parent> ...] [--json]
 ```
 
 Example: `--depends-on 22:21 --depends-on 23:22` creates a three-PR stack.
@@ -129,9 +140,21 @@ leaf (for example, `feature/work#21` and `feature-work#21`). Treat the paths
 returned by `agent-deck launch` as authoritative. Do not add `--no-parent`:
 parent linkage supplies status notifications without coupling execution.
 
-The launcher validates the checkout and collisions before creating anything,
-de-duplicates issue numbers, locks titles, and continues past an individual
-launch failure.
+The launcher scopes every Agent Deck lookup to `--profile`, uses `--parent` or
+the current Agent Deck session for durable child events, and requests the Codex
+completion sentinel. With `--json`, it returns one manifest containing each
+owner's stable session ID, issue chain, branch, worktree, group, and parent.
+
+Immediately before creating anything, the launcher revalidates that each issue
+is still open and unclaimed. A blocked issue is accepted only when every open
+blocker is selected and ordered below it in the supplied dependency chain. The
+launcher also validates the checkout and collisions, de-duplicates issue
+numbers, locks titles, and continues past an individual launch failure.
+
+Agent Deck 1.11 and newer require explicit approval before a non-interactive
+launch runs repository-owned `.agent-deck/worktree-*.sh` scripts. Inspect the
+scripts and ask the human to approve their current content with
+`agent-deck worktree trust-scripts <repo-path>`; never grant trust implicitly.
 
 ## Worker and stack-owner contract
 
@@ -181,9 +204,9 @@ pre-push gate uses its methodology locally rather than its posting step.
 
 ## Report
 
-Report each successful launch and failure, the sole owner for every root-to-tip
-stack, its default base, plus any normalization Agent Deck applied to the root
-branch/worktree name. Give the scoped-view command:
+Report each successful launch and failure, the stable Agent Deck session ID for
+every root-to-tip stack owner, its default base, plus any normalization Agent
+Deck applied to the root branch/worktree name. Give the scoped-view command:
 
 ```bash
 agent-deck -g <group>
