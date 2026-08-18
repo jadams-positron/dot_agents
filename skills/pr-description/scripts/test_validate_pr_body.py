@@ -5,13 +5,13 @@ import unittest
 from validate_pr_body import validate
 
 
-GOOD_BODY = """## How to Review
-
-Read `internal/widget.go` first and verify failures remain closed.
-
-## Summary
+GOOD_BODY = """## Summary
 
 Adds the requested widget behavior without changing the public API.
+
+## How to Review
+
+Read `internal/widget.go` first and verify failures remain closed.
 
 ## Testing
 
@@ -54,9 +54,9 @@ class ValidatePRBodyTest(unittest.TestCase):
         self.assertIn("expected exactly one ## Testing heading", errors)
 
     def test_requires_core_section_order(self) -> None:
-        body = "## Summary\n\nChange.\n## How to Review\n\nRead.\n## Testing\n\nPassed.\n"
+        body = "## How to Review\n\nRead.\n## Summary\n\nChange.\n## Testing\n\nPassed.\n"
         self.assertIn(
-            "required sections must be ordered: How to Review, Summary, Testing",
+            "required sections must be ordered: Summary, How to Review, Testing",
             validate(body),
         )
 

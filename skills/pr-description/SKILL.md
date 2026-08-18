@@ -1,6 +1,6 @@
 ---
 name: pr-description
-description: Draft, verify, create, or refresh rich GitHub pull-request descriptions grounded in the exact diff and observed test evidence. Use whenever a workflow opens a PR, edits a PR body, prepares stacked PR metadata, or the user asks to write, rewrite, clean up, expand, or add How to Review, Summary, Testing, or Example Usage sections to a PR description.
+description: Draft, verify, create, or refresh rich GitHub pull-request descriptions grounded in the exact diff and observed test evidence. Use whenever a workflow opens a PR, edits a PR body, prepares stacked PR metadata, or the user asks to write, rewrite, clean up, expand, or add Summary, How to Review, Testing, or Example Usage sections to a PR description.
 ---
 
 # PR Description
@@ -31,6 +31,12 @@ already granted by the user or calling workflow.
 
 Use these sections in this order.
 
+### `## Summary`
+
+Explain the problem and why it matters, then the implemented approach. Cover the
+important control or data flow and any user, operator, API, compatibility, or
+safety behavior. State meaningful scope boundaries, dependencies, and non-goals.
+
 ### `## How to Review`
 
 Give the reviewer an efficient, concrete path through the change:
@@ -41,12 +47,6 @@ Give the reviewer an efficient, concrete path through the change:
 - provide a focused sanity check when one helps validate the behavior.
 
 Do not write generic advice such as “review the diff.”
-
-### `## Summary`
-
-Explain the problem and why it matters, then the implemented approach. Cover the
-important control or data flow and any user, operator, API, compatibility, or
-safety behavior. State meaningful scope boundaries, dependencies, and non-goals.
 
 ### `## Testing`
 

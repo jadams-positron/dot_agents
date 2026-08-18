@@ -7,7 +7,7 @@ import argparse
 import re
 from pathlib import Path
 
-REQUIRED_HEADINGS = ("## How to Review", "## Summary", "## Testing")
+REQUIRED_HEADINGS = ("## Summary", "## How to Review", "## Testing")
 EXAMPLE_HEADING = "## Example Usage"
 LIVE_EVIDENCE_HEADING = "## Live Evidence"
 BUGBOT_START = "<!-- CURSOR_SUMMARY -->"
@@ -56,7 +56,7 @@ def validate(
             errors.append(f"{heading} must not be empty")
 
     if len(positions) == len(REQUIRED_HEADINGS) and positions != sorted(positions):
-        errors.append("required sections must be ordered: How to Review, Summary, Testing")
+        errors.append("required sections must be ordered: Summary, How to Review, Testing")
 
     example_matches = list(re.finditer(rf"(?m)^{re.escape(EXAMPLE_HEADING)}\s*$", body))
     if require_example and len(example_matches) != 1:
