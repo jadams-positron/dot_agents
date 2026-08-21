@@ -119,6 +119,13 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIn("independent issue", prompt)
         self.assertIn("pr-description skill as the sole PR-body authoring path", prompt)
         self.assertIn("preserve any Bugbot summary appended at the end byte-for-byte", prompt)
+        self.assertIn("mandatory abstraction-review leg", prompt)
+        self.assertIn("fresh read-only agent with no inherited conversation", prompt)
+        self.assertIn("positive tool allowlist", prompt)
+        self.assertIn("stop if enforcement is unavailable", prompt)
+        self.assertIn("full 40-hex target-tip, merge-base, and head commit OIDs", prompt)
+        self.assertIn("verify all three OIDs, the digest", prompt)
+        self.assertIn("worktree cleanliness after collection", prompt)
         self.assertNotIn("branch named work#42", prompt)
 
     def test_worker_prompt_assigns_one_native_stack_owner(self) -> None:
@@ -128,8 +135,20 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIn("gh stack init --base main", prompt)
         self.assertIn("gh stack sync", prompt)
         self.assertIn("Do not create another worktree", prompt)
-        self.assertIn("pr-description as the sole body-authoring path", prompt)
+        self.assertIn("pr-description as the sole PR-body authoring path", prompt)
         self.assertIn("preserve any Bugbot summary appended at the end byte-for-byte", prompt)
+        self.assertIn("mandatory abstraction-review leg", prompt)
+        self.assertIn("positive tool allowlist", prompt)
+        self.assertIn("stop if enforcement is unavailable", prompt)
+        self.assertIn("raw title/body and acceptance criteria for every stack issue", prompt)
+        self.assertIn("invalidates the aggregate abstraction review", prompt)
+        self.assertIn("run `gh stack rebase` before freezing", prompt)
+        self.assertIn("No amend, rebase, sync, or content-changing command", prompt)
+        self.assertIn("Submit without another rebase", prompt)
+        self.assertIn("before any PR becomes ready", prompt)
+        self.assertIn("full 40-hex tip OID", prompt)
+        self.assertIn("verify all OIDs, the digest, and worktree cleanliness after collection", prompt)
+        self.assertIn("worktree cleanliness after collection", prompt)
 
     def test_worker_prompt_supports_custom_names_and_instructions(self) -> None:
         prompt = worker_prompt(

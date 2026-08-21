@@ -1,6 +1,6 @@
 ---
 name: work-issue
-description: This skill should be used when the user asks to work a GitHub issue end to end — claim it, assign it to @me, move it to In Progress, complete applicable issue hygiene, implement it in a fresh git worktree, run the fess/fix-all/wiggum quality gates, open a draft PR, babysit CI to green, mark the PR ready, and resolve Cursor Bugbot findings until clean. Triggered by phrases like "start working #N in a worktree", "work issue #N", "take #N through the gates", or "/work-issue N". Merge is never part of the flow.
+description: This skill should be used when the user asks to work a GitHub issue end to end — claim it, assign it to @me, move it to In Progress, complete applicable issue hygiene, implement it in a fresh git worktree, run an independent clean-context abstraction review plus the fess/fix-all/wiggum quality gates, open a draft PR, babysit CI to green, mark the PR ready, and resolve Cursor Bugbot findings until clean. Triggered by phrases like "start working #N in a worktree", "work issue #N", "take #N through the gates", or "/work-issue N". Merge is never part of the flow.
 ---
 
 # Work Issue
@@ -10,9 +10,10 @@ description: This skill should be used when the user asks to work a GitHub issue
 Drive one GitHub issue from number to review-ready PR: read and restate the
 scope, claim the issue with complete start-work hygiene, implement exactly that
 scope in an isolated worktree, pass an honesty-audit gate chain (`fess` →
-`fix-all` → `wiggum`), ship a draft PR, iterate CI to green, collapse iterative
-commits into one clean issue commit, flip to ready, and drain Bugbot findings
-without re-growing the history. The human merges; this skill never does.
+`fix-all` → `wiggum`) plus an independent abstraction-alignment review, ship a
+draft PR, iterate CI to green, collapse iterative commits into one clean issue
+commit, flip to ready, and drain Bugbot findings without re-growing the
+history. The human merges; this skill never does.
 
 The default is standalone mode. When `work-gh-issues` designates the current
 session as the sole owner of an ordered native `gh stack`, run this skill once
@@ -135,14 +136,53 @@ Run in order; each gate acts on the previous one's findings:
    private infrastructure details, or unrelated desktop content.
 3. `fess` — honesty audit of the work; convert uncertainty into verification
    commands, not assertions.
-4. `fix-all` — fix every fess finding now, upstream-shaped; reverting scope
-   creep counts as a fix.
+4. `fix-all` — fix every validated fess finding now, upstream-shaped; reverting
+   scope creep counts as a fix.
 5. `wiggum` — loop until the Definition of Done holds: commit, then dispatch a
    SEPARATE fess subagent to audit the commit (never self-grade), fold real
    findings back in, and keep a standalone branch rebased on its resolved base.
    A stack member does not independently rebase; the stack owner performs the
    cascading rebase. Bounded attempts (default 3) per failing gate, then
    escalate.
+6. `abstraction-review` — after `wiggum` has produced the candidate commit,
+   dispatch this to a fresh, read-only agent with no
+   inherited conversation context. Require a clean worktree, freeze edits, and
+   fetch and record the full 40-hex target-branch tip, merge-base, and
+   candidate-head commit OIDs plus the exact diff SHA-256. Give
+   the agent only the repository/worktree, those immutable endpoints, issue
+   intent and acceptance criteria, repository instructions, and the raw diff.
+   Tell it to
+   load and follow the installed `abstraction-review` skill and required
+   references, inspect the shared path and relevant history itself, and return
+   the skill's complete verdict and evidence-backed findings. Do not pass the
+   authoring transcript, implementation plan, prior reviewer output, proposed
+   fixes, or suspected findings. In Codex, use a new subagent with
+   `fork_turns: "none"`; in another harness use its equivalent fresh-context
+   task, never a resumed authoring or review agent.
+   Enforce a positive tool allowlist containing only file read/search and exact
+   non-mutating history/diff commands; explicitly deny Write/Edit/NotebookEdit,
+   mutation-capable shell, and state-changing MCP/external tools. Post-hoc
+   cleanliness is not enforcement. If the harness cannot enforce this
+   allowlist, stop.
+   A broader review satisfies
+   this gate only when it includes this exact independent leg against the same
+   immutable base-to-head diff. Refetch and re-resolve all three OIDs and the
+   digest and recheck worktree cleanliness after the agent returns; discard and
+   restart the review on any mismatch. If fresh-agent
+   isolation is unavailable, stop instead of self-reviewing.
+7. `fix-all` — fix every validated abstraction-review finding now,
+   upstream-shaped. An unverified premise
+   that needs an owner's answer blocks the gate rather than becoming an assumed
+   exception.
+8. After any abstraction repair, rerun affected tests and `wiggum` so the fix is
+   folded into the same candidate commit, then dispatch a different fresh
+   abstraction reviewer against the new exact head. The gate passes only when
+   the exact candidate tree has no unresolved abstraction finding.
+
+If `wiggum` changes content after the last abstraction review, repeat the
+affected tests and the fresh-agent abstraction gate before pushing. Record the
+reviewer's identity, context-isolation method, reviewed base/head, verdict, and
+disposition of every finding in the handoff evidence.
 
 ### 6. Ship the draft PR
 

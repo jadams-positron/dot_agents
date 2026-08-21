@@ -1,4 +1,4 @@
 interface:
   display_name: "PR Description"
-  short_description: "Draft rich, evidence-backed PR descriptions"
-  default_prompt: "Use $pr-description to draft or refresh a rich, code-grounded pull request description, exactly preserving any Bugbot summary already appended at the end."
+  short_description: "Draft PR bodies with an abstraction gate"
+  default_prompt: "Use $pr-description to draft or refresh a rich, code-grounded pull request description. Before any outward write, require exact-target evidence from an independent clean-context abstraction review, and preserve any Bugbot summary already appended at the end."

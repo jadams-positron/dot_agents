@@ -1,6 +1,6 @@
 ---
 name: pr-description
-description: Draft, verify, create, or refresh rich GitHub pull-request descriptions grounded in the exact diff and observed test evidence. Use whenever a workflow opens a PR, edits a PR body, prepares stacked PR metadata, or the user asks to write, rewrite, clean up, expand, or add Summary, How to Review, Testing, or Example Usage sections to a PR description.
+description: Draft, verify, create, or refresh rich GitHub pull-request descriptions grounded in the exact diff and observed test evidence. Any outward PR create/edit requires matching evidence from, or dispatch of, a mandatory independent clean-context abstraction review. Use whenever a workflow opens a PR, edits a PR body, prepares stacked PR metadata, or the user asks to write, rewrite, clean up, expand, or add Summary, How to Review, Testing, or Example Usage sections to a PR description.
 ---
 
 # PR Description
@@ -26,6 +26,46 @@ already granted by the user or calling workflow.
 6. Before rewriting an existing PR body, fetch its live body. If Bugbot has
    appended a `<!-- CURSOR_SUMMARY -->` ... `<!-- /CURSOR_SUMMARY -->` block at
    the end, retain that exact block for preservation during the rewrite.
+
+## Require abstraction evidence before any outward write
+
+Drafting text locally does not require this gate. Running `gh pr create`,
+`gh pr edit`, or any equivalent outward PR-body write does.
+
+1. Fetch the target branch and freeze its full tip OID, the merge-base, the full
+   head OID, a clean-worktree assertion, the exact `--no-ext-diff --binary`
+   merge-base-to-head diff bytes, and their SHA-256. For an existing PR, resolve
+   the live base tip and head from GitHub rather than local branch names.
+2. Accept a caller's abstraction evidence only when it records the independent
+   reviewer identity, clean-context mechanism, enforced positive read-only
+   allowlist, `ALIGNED` verdict with complete findings, and the exact same
+   base-tip/merge-base/head/diff digest. Refetch,
+   regenerate, and compare every value and worktree cleanliness. A statement
+   that a review ran, a branch name, or a head SHA alone is not evidence.
+3. If matching evidence is absent or stale, create a clean detached worktree at
+   the exact head and spawn a new independent agent with `fork_turns: "none"`
+   (or the harness's equivalent empty context). Require it to load and follow
+   the `abstraction-review` skill. Give it only the raw issue/PR intent and
+   acceptance criteria, repository instructions, immutable OIDs, clean
+   worktree, and exact diff artifact. Do not provide the body draft,
+   implementation plan, authoring conversation, prior findings, fixes, review
+   output, or suspected abstractions.
+4. Enforce read-only dispatch with a positive tool allowlist containing only
+   file read/search and exact non-mutating history/diff commands. Explicitly
+   deny Write/Edit/NotebookEdit, mutation-capable shell, and state-changing MCP
+   or external tools. Post-hoc cleanliness is not a substitute. If the harness
+   cannot enforce both clean context and this allowlist, stop without writing.
+5. If the report is incomplete, contaminated, or not `ALIGNED`, stop without
+   publishing and return every finding to the calling workflow for repair.
+   After any repair, rebase, sync, amend, or other target change, a different
+   fresh reviewer must review the new exact artifact.
+6. Immediately before the outward write, refetch and recheck every endpoint,
+   diff byte/digest, detached HEAD, and both worktrees' cleanliness. On any
+   mismatch, discard the evidence and restart. After the write, recheck again;
+   if the target raced, refresh the evidence and body before reporting success.
+
+Create new PRs as drafts. This skill never marks them ready; the calling
+workflow may do that only after its remaining review, CI, and repair gates.
 
 ## Write the body
 
@@ -128,7 +168,7 @@ Write the body to a temporary file and use a body-file argument so shell quoting
 cannot corrupt Markdown:
 
 ```bash
-gh pr create --body-file <body-file>
+gh pr create --draft --body-file <body-file>
 gh pr edit <PR> --body-file <body-file>
 ```
 

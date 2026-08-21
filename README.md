@@ -50,11 +50,11 @@ over with `cutover-strangler-runbook`.
 | [`document-research`](skills/document-research/SKILL.md) | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
 | [`file-issue`](skills/file-issue/SKILL.md) | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
 | [`investigate-performance`](skills/investigate-performance/SKILL.md) | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
-| [`pr-description`](skills/pr-description/SKILL.md) | Draft, validate, create, or refresh evidence-backed PR descriptions with concrete review guidance, tests, applicable usage examples, and byte-for-byte preservation of an appended Bugbot summary. |
+| [`pr-description`](skills/pr-description/SKILL.md) | Draft, validate, create, or refresh evidence-backed PR descriptions; outward writes require exact-target evidence from a mandatory independent clean-context abstraction review. |
 | [`reconcile-issues`](skills/reconcile-issues/SKILL.md) | Audit a set of GitHub issues (epic children, a title prefix, a label) against the codebase — which shipped, which are superseded, which need re-scoping — then execute the closes, consolidations, epic rewrite, and native sub-issue sync on approval. |
-| [`refactor-campaign`](skills/refactor-campaign/SKILL.md) | Review an entire codebase for a broad refactoring goal, validate findings into dependency-ordered work units, and integrate audited worker commits locally. |
-| [`work-gh-issues`](skills/work-gh-issues/SKILL.md) | Discover actionable issues, map interdependencies into GitHub PR stacks, and fan them out into isolated Agent Deck Codex sessions with shared quality gates. |
-| [`work-issue`](skills/work-issue/SKILL.md) | Work a GitHub issue end to end — implement in a worktree, run the quality gates, open a stack-aware draft PR, squash iterative history, drive CI to green, and resolve Bugbot findings. |
+| [`refactor-campaign`](skills/refactor-campaign/SKILL.md) | Review an entire codebase for a broad refactoring goal, validate findings into dependency-ordered work units, integrate audited worker commits locally, and independently review the final diff for abstraction alignment. |
+| [`work-gh-issues`](skills/work-gh-issues/SKILL.md) | Discover actionable issues, map interdependencies into GitHub PR stacks, and fan them out into isolated Agent Deck Codex sessions with shared quality and clean-context abstraction-review gates. |
+| [`work-issue`](skills/work-issue/SKILL.md) | Work a GitHub issue end to end — implement in a worktree, run an independent clean-context abstraction review and the other quality gates, open a stack-aware draft PR, squash iterative history, drive CI to green, and resolve Bugbot findings. |
 
 ## Syncing
 
