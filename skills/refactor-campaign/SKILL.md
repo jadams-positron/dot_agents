@@ -104,40 +104,30 @@ separate coverage check to confirm that the ledger has no silent gaps.
 
 ### Pass 4: independent abstraction alignment
 
-Before synthesis in both review-only and execute modes, dispatch
-`abstraction-review` in a brand-new read-only agent with no inherited campaign,
-authoring, or reviewer context. This pass occurs before campaign implementation,
-so never describe its target as a baseline-to-current diff when those commits
-are identical.
+Before synthesis in both modes, dispatch the installed `abstraction-review`
+skill under `references/independent-dispatch.md`
+(`independent-abstraction-review/v1`). This pass occurs before implementation,
+so never describe identical baseline/current commits as a diff.
 
 Freeze one of these two real targets:
 
-- If the campaign branch already differs from its integration base, give the
-  reviewer the full base-tip, merge-base, and baseline OIDs plus the exact
-  merge-base-to-baseline binary diff and SHA-256.
+- If the campaign branch differs from its integration base, use the `diff`
+  profile and include the base-tip, merge-base, baseline commit and tree OIDs,
+  plus the exact binary diff and SHA-256.
 - If there is no pre-existing branch diff, run a goal-scoped repository
-  abstraction census instead. Give the reviewer the exact baseline commit and
-  tree OIDs plus a complete in-scope tracked-path/blob-OID census and its
-  SHA-256. Ask it to use the skill's null-diff and owner-mapping method to find
+  abstraction census under the `census` profile. Include the baseline commit
+  and tree OIDs plus a deterministic in-scope path/type/mode/object manifest
+  and SHA-256. Ask it to use the skill's null-diff and owner-mapping method to find
   existing parallel mechanisms, identity dispatch, runtime rediscovery, guard
   workarounds, and contract shoehorning relevant to the raw refactor goal. Do
   not manufacture or review an empty diff.
 
-Require a clean worktree and give it only that frozen target, the frozen goal
-and acceptance boundaries, and repository instructions. Do not pass raw
-findings, validator output, a draft manifest, proposed units, suspected
-problems, or fixes. In Codex use `fork_turns: "none"`;
-in another harness use its equivalent fresh-context task. Tell it to load and
-follow the installed `abstraction-review` skill and references and inspect the
-shared path and history itself. Re-resolve every recorded OID, the artifact
-digest, HEAD/tree, and worktree cleanliness after collection; discard and
-restart on any mismatch. Add every
-returned finding to the raw ledger so synthesis gives it an explicit
-disposition. Enforce a positive tool allowlist containing only file read/search
-and exact non-mutating history/diff commands; explicitly deny
-Write/Edit/NotebookEdit, mutation-capable shell, and state-changing MCP/external
-tools. Post-hoc cleanliness is not enforcement. If isolation or allowlist
-enforcement is unavailable, stop.
+Give the reviewer only the frozen target, goal, acceptance boundaries,
+and repository instructions. Exclude raw findings, validator output, a draft
+manifest, proposed units, suspected problems, and fixes. In Codex use
+`fork_turns: "none"`; another harness must provide equivalent fresh context.
+Retain the complete canonical evidence packet and add every returned finding to
+the raw ledger. Any canonical failure stops the campaign.
 
 ## Synthesize the work manifest
 
@@ -224,22 +214,13 @@ repair. Record the merge SHA and evidence before scheduling dependents.
    unit rather than fixing it directly in the integration worktree. Count final
    repair units against the same configured implementation bound.
 5. Independently dispatch `abstraction-review` over the complete
-   baseline-to-HEAD diff. Use a brand-new read-only agent with no inherited
-   conversation, campaign, worker, or reviewer context. Give it only the frozen
-   goal and acceptance boundaries, repository/worktree and instructions, full
-   40-hex baseline and head commit OIDs, and the exact diff artifact plus
-   SHA-256. Tell it
-   to load and follow the installed `abstraction-review` skill and required
-   references, inspect the shared path and relevant history itself, and return
-   the complete verdict and evidence-backed findings. Require a clean worktree.
-   Do not pass the campaign
-   manifest, raw findings, implementation plans, prior audits, proposed fixes,
-   or suspected problems. In Codex use `fork_turns: "none"`; in another harness
-   use its equivalent fresh-context task. A general final auditor does not
-   satisfy this leg. Re-resolve both OIDs and the digest and recheck worktree
-   cleanliness after collection; discard and restart the review on any mismatch.
-   Apply the same positive read-only tool allowlist as Pass 4; if isolated
-   dispatch or allowlist enforcement is unavailable, stop.
+   baseline-to-HEAD diff under the same canonical contract, using the `campaign`
+   profile with the baseline, ordered work-unit OIDs, complete head/tree target,
+   and exact diff. Give it only the frozen goal, acceptance boundaries,
+   repository instructions, and frozen target. Exclude the campaign manifest,
+   raw findings, implementation plans, prior audits, proposed fixes, and
+   suspected problems. A general final auditor does not satisfy this leg.
+   Retain the complete canonical evidence packet; any canonical failure stops.
 6. Turn each validated abstraction finding into a bounded worker unit under the
    same repair and implementation-bound rules. After any repair, rerun affected
    gates and use a different fresh abstraction reviewer against the new exact
@@ -255,8 +236,8 @@ When composed with `work-issue`, return control before any push and let that
 skill perform its gate chain, tree-preserving history cleanup, PR, CI, and
 Bugbot workflow. Report the integrated branch and SHA, accepted/rejected counts,
 unit commits and merge SHAs, test evidence, cleanup result, and open decisions.
-Include the abstraction reviewer's identity, context-isolation method, reviewed
-baseline/head, verdict, and disposition of every finding.
+Include the complete canonical abstraction evidence packet and every finding's
+disposition.
 
 ## Escalate
 

@@ -145,31 +145,15 @@ Run in order; each gate acts on the previous one's findings:
    cascading rebase. Bounded attempts (default 3) per failing gate, then
    escalate.
 6. `abstraction-review` — after `wiggum` has produced the candidate commit,
-   dispatch this to a fresh, read-only agent with no
-   inherited conversation context. Require a clean worktree, freeze edits, and
-   fetch and record the full 40-hex target-branch tip, merge-base, and
-   candidate-head commit OIDs plus the exact diff SHA-256. Give
-   the agent only the repository/worktree, those immutable endpoints, issue
-   intent and acceptance criteria, repository instructions, and the raw diff.
-   Tell it to
-   load and follow the installed `abstraction-review` skill and required
-   references, inspect the shared path and relevant history itself, and return
-   the skill's complete verdict and evidence-backed findings. Do not pass the
-   authoring transcript, implementation plan, prior reviewer output, proposed
-   fixes, or suspected findings. In Codex, use a new subagent with
-   `fork_turns: "none"`; in another harness use its equivalent fresh-context
-   task, never a resumed authoring or review agent.
-   Enforce a positive tool allowlist containing only file read/search and exact
-   non-mutating history/diff commands; explicitly deny Write/Edit/NotebookEdit,
-   mutation-capable shell, and state-changing MCP/external tools. Post-hoc
-   cleanliness is not enforcement. If the harness cannot enforce this
-   allowlist, stop.
-   A broader review satisfies
-   this gate only when it includes this exact independent leg against the same
-   immutable base-to-head diff. Refetch and re-resolve all three OIDs and the
-   digest and recheck worktree cleanliness after the agent returns; discard and
-   restart the review on any mismatch. If fresh-agent
-   isolation is unavailable, stop instead of self-reviewing.
+   apply its `references/independent-dispatch.md` contract
+   (`independent-abstraction-review/v1`) as a mandatory `diff`-profile gate.
+   Freeze the target ref, full target-tip, merge-base, candidate-head and tree
+   OIDs, exact binary diff and SHA-256. In Codex, `fork_turns: "none"` supplies
+   fresh context; another harness must provide an equivalent. Harness-specific
+   syntax does not weaken the canonical context, target, capability, freshness,
+   evidence, or fail-closed requirements. A broader review satisfies this gate
+   only when its abstraction leg returns the complete canonical evidence packet
+   for the same target.
 7. `fix-all` — fix every validated abstraction-review finding now,
    upstream-shaped. An unverified premise
    that needs an owner's answer blocks the gate rather than becoming an assumed
@@ -181,8 +165,8 @@ Run in order; each gate acts on the previous one's findings:
 
 If `wiggum` changes content after the last abstraction review, repeat the
 affected tests and the fresh-agent abstraction gate before pushing. Record the
-reviewer's identity, context-isolation method, reviewed base/head, verdict, and
-disposition of every finding in the handoff evidence.
+complete canonical evidence packet and every finding's disposition in the
+handoff evidence.
 
 ### 6. Ship the draft PR
 

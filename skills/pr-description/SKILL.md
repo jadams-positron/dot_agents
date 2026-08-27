@@ -32,36 +32,25 @@ already granted by the user or calling workflow.
 Drafting text locally does not require this gate. Running `gh pr create`,
 `gh pr edit`, or any equivalent outward PR-body write does.
 
-1. Fetch the target branch and freeze its full tip OID, the merge-base, the full
-   head OID, a clean-worktree assertion, the exact `--no-ext-diff --binary`
-   merge-base-to-head diff bytes, and their SHA-256. For an existing PR, resolve
-   the live base tip and head from GitHub rather than local branch names.
-2. Accept a caller's abstraction evidence only when it records the independent
-   reviewer identity, clean-context mechanism, enforced positive read-only
-   allowlist, `ALIGNED` verdict with complete findings, and the exact same
-   base-tip/merge-base/head/diff digest. Refetch,
-   regenerate, and compare every value and worktree cleanliness. A statement
-   that a review ran, a branch name, or a head SHA alone is not evidence.
-3. If matching evidence is absent or stale, create a clean detached worktree at
-   the exact head and spawn a new independent agent with `fork_turns: "none"`
-   (or the harness's equivalent empty context). Require it to load and follow
-   the `abstraction-review` skill. Give it only the raw issue/PR intent and
-   acceptance criteria, repository instructions, immutable OIDs, clean
-   worktree, and exact diff artifact. Do not provide the body draft,
+1. Use the installed `abstraction-review` skill's
+   `references/independent-dispatch.md` contract
+   (`independent-abstraction-review/v1`) with the `diff` profile. Freeze the
+   target ref, full target-tip, merge-base, head and tree OIDs, exact
+   canonical read-only binary diff and SHA-256. For an existing PR, resolve live
+   endpoints from GitHub.
+2. Accept caller evidence only when its complete canonical packet is `ALIGNED`
+   and its declared, reviewer-echoed, and freshly recomputed target matches.
+3. If evidence is absent or stale, dispatch a new reviewer under that contract.
+   In Codex use `fork_turns: "none"`; another harness must provide equivalent
+   fresh context and capability enforcement. Exclude the body draft,
    implementation plan, authoring conversation, prior findings, fixes, review
-   output, or suspected abstractions.
-4. Enforce read-only dispatch with a positive tool allowlist containing only
-   file read/search and exact non-mutating history/diff commands. Explicitly
-   deny Write/Edit/NotebookEdit, mutation-capable shell, and state-changing MCP
-   or external tools. Post-hoc cleanliness is not a substitute. If the harness
-   cannot enforce both clean context and this allowlist, stop without writing.
-5. If the report is incomplete, contaminated, or not `ALIGNED`, stop without
+   output, and suspected abstractions.
+4. If the report is incomplete, contaminated, or not `ALIGNED`, stop without
    publishing and return every finding to the calling workflow for repair.
    After any repair, rebase, sync, amend, or other target change, a different
    fresh reviewer must review the new exact artifact.
-6. Immediately before the outward write, refetch and recheck every endpoint,
-   diff byte/digest, detached HEAD, and both worktrees' cleanliness. On any
-   mismatch, discard the evidence and restart. After the write, recheck again;
+5. Perform the canonical pre-use check immediately before the outward write.
+   On any mismatch, discard the evidence and restart. After the write, recheck;
    if the target raced, refresh the evidence and body before reporting success.
 
 Create new PRs as drafts. This skill never marks them ready; the calling

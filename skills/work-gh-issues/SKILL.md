@@ -175,25 +175,17 @@ A multi-issue worker is the sole writer and integrator for the entire chain. It:
    freezing any review target. It then runs the local multi-angle review and
    `fix-all` gates before the first submission. It requires a clean worktree,
    freezes edits, fetches the default
-   base, and records the full
-   40-hex default-base tip, merge-base, and stack-tip commit OIDs plus a SHA-256
-   of the exact merge-base-to-tip diff. The review must include the
-   `agent-pr-review` methodology's
-   mandatory `abstraction-review` leg: a fresh read-only agent with no inherited
-   conversation or reviewer context, reviewing the complete stack diff from its
-   recorded immutable endpoints. Give that agent the raw title/body and
-   acceptance criteria for every stack issue, full OIDs, and raw diff artifact,
-   but no implementation plan or prior findings; never use moving ref names.
-   Enforce a positive tool allowlist containing only file read/search and exact
-   non-mutating history/diff commands; explicitly deny Write/Edit/NotebookEdit,
-   mutation-capable shell, and state-changing MCP/external tools. If the harness
-   cannot enforce it, stop; cleanliness checks alone do not satisfy read-only.
-   After collection, refetch and verify the
-   default-base tip, merge-base, stack tip, and diff digest are unchanged and
-   that the worktree is still clean; on any mismatch discard all review results
-   and restart. This aggregate leg is
-   distinct from each member's review because it checks interactions introduced
-   only by composition. It then invokes
+   base, and records the default-base ref, full tip, merge-base, stack-tip and
+   tree OIDs, ordered stack OIDs and bounds, plus the exact binary diff and
+   SHA-256. The review must include the `agent-pr-review` methodology's
+   mandatory `abstraction-review` leg under
+   `references/independent-dispatch.md`
+   (`independent-abstraction-review/v1`) with the `stack` profile. Give the
+   reviewer only raw intent and acceptance criteria for every stack issue,
+   repository instructions, and the frozen target. Retain the complete
+   canonical evidence packet; any contract failure stops the workflow. This
+   aggregate leg is distinct from each member's review because it checks
+   interactions introduced only by composition. It then invokes
    `pr-description` as the sole body-authoring path for each PR, using that PR's
    immediate base-to-head diff rather than the cumulative stack. When live
    validation is required, it includes an inspected screenshot for visual
@@ -219,12 +211,10 @@ A multi-issue worker is the sole writer and integrator for the entire chain. It:
    issue's single commit, followed by another whole-stack rebase and sync. It
    treats any content amendment or cascade rebase as invalidating the aggregate
    abstraction review. After the stack stabilizes, and before any PR becomes
-   ready, it dispatches a different fresh `abstraction-review` agent against the
-   raw issue intent plus the newly frozen full default-base tip, merge-base,
-   stack-tip OIDs, and diff digest. It verifies all four and worktree cleanliness again after collection,
-   applies `fix-all` to every validated finding, and repeats the stack
-   rebase/sync, checks, and fresh
-   review until the final tip is clean. It
+   ready, it dispatches a different fresh `abstraction-review` agent under the
+   same canonical `stack` contract against the new frozen target, applies
+   `fix-all` to every validated finding, and repeats the stack rebase/sync,
+   checks, and fresh review until the final tip is clean. It
    reruns `pr-description` for every affected PR against its final immediate
    base and head. Before each rewrite it fetches the live body and preserves any
    Bugbot summary appended at the end byte-for-byte, using that snapshot as the
