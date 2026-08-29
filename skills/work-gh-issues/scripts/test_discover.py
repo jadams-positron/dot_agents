@@ -112,43 +112,20 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIsNotNone(BLOCKED_LABEL.search("on-hold"))
         self.assertIsNone(BLOCKED_LABEL.search("enhancement"))
 
-    def test_worker_prompt_uses_current_branch_as_authoritative(self) -> None:
+    def test_worker_prompt_uses_one_bounded_root(self) -> None:
         prompt = worker_prompt("owner/repo", [42], "main")
-        self.assertIn("owner/repo#42", prompt)
-        self.assertIn("current worktree and branch names as authoritative", prompt)
-        self.assertIn("independent issue", prompt)
-        self.assertIn("pr-description skill as the sole PR-body authoring path", prompt)
-        self.assertIn("preserve any Bugbot summary appended at the end byte-for-byte", prompt)
-        self.assertIn("mandatory abstraction-review leg", prompt)
-        self.assertIn("abstraction-review/references/independent-dispatch.md", prompt)
-        self.assertIn("independent-abstraction-review/v1", prompt)
-        self.assertIn("Stop if the canonical context or capability boundary", prompt)
-        self.assertIn("target-tip, merge-base, head and tree OIDs", prompt)
-        self.assertIn("complete evidence packet", prompt)
-        self.assertNotIn("branch named work#42", prompt)
+        self.assertIn("sole root orchestrator", prompt)
+        self.assertIn("two total repair rounds", prompt)
+        self.assertIn("smallest correct diff", prompt)
+        self.assertNotIn("repeat with another fresh", prompt)
 
-    def test_worker_prompt_assigns_one_native_stack_owner(self) -> None:
+    def test_worker_prompt_assigns_one_bounded_stack_owner(self) -> None:
         prompt = worker_prompt("owner/repo", [42, 43], "main")
-        self.assertIn("sole writer and native GitHub stack integrator", prompt)
-        self.assertIn("#42, #43", prompt)
-        self.assertIn("gh stack init --base main", prompt)
+        self.assertIn("sole root orchestrator", prompt)
+        self.assertIn("work-issue only in delegated mode", prompt)
+        self.assertIn("two total repair rounds", prompt)
         self.assertIn("gh stack sync", prompt)
-        self.assertIn("Do not create another worktree", prompt)
-        self.assertIn("pr-description as the sole PR-body authoring path", prompt)
-        self.assertIn("preserve any Bugbot summary appended at the end byte-for-byte", prompt)
-        self.assertIn("mandatory abstraction-review leg", prompt)
-        self.assertIn("abstraction-review/references/independent-dispatch.md", prompt)
-        self.assertIn("independent-abstraction-review/v1", prompt)
-        self.assertIn("raw intent and acceptance criteria for every issue", prompt)
-        self.assertIn("invalidates the aggregate abstraction review", prompt)
-        self.assertIn("run `gh stack rebase` before freezing", prompt)
-        self.assertIn("No amend, rebase, sync, or content-changing command", prompt)
-        self.assertIn("Submit without another rebase", prompt)
-        self.assertIn("before any PR becomes ready", prompt)
-        self.assertIn("default-base ref and tip", prompt)
-        self.assertIn("ordered stack OIDs and bounds", prompt)
-        self.assertIn("complete evidence packet", prompt)
-        self.assertIn("same canonical `stack`-profile gate", prompt)
+        self.assertNotIn("fix-all workflow", prompt)
 
     def test_worker_prompt_supports_custom_names_and_instructions(self) -> None:
         prompt = worker_prompt(

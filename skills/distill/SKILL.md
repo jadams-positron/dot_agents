@@ -1,6 +1,6 @@
 ---
 name: distill
-description: Iteratively simplify code, prose, documentation, comments, notes, messages, and email through at least three passes while preserving correctness, meaning, behavior, constraints, evidence, intent, and voice. Use for requests to distill, simplify, tighten, shorten, declutter, reduce noise or complexity, remove redundancy, improve readability, or clean up an artifact without losing substance. Also use when creating or updating setup guides, requirements, planning pages, wikis, runbooks, dependency docs, operational procedures, audits, decision records, or implementation briefs.
+description: Simplify code or prose through one proportionate verified pass by default, with up to three passes while concrete safe reductions remain. Use for explicit requests to distill, simplify, tighten, shorten, or remove redundancy without losing substance.
 ---
 
 # Distill
@@ -33,9 +33,9 @@ Before editing:
 4. Inspect enough surrounding context to avoid making a locally concise change that increases system-wide confusion.
 5. Do not invent missing facts or silently resolve ambiguity. Preserve or surface uncertainty.
 
-## Complete at Least Three Passes
+## Use Proportionate Passes
 
-Perform every pass as a complete `inspect -> edit -> verify` loop. Do not collapse the passes into one rewrite.
+Perform one `inspect -> edit -> verify` pass by default. Continue only for concrete material reductions and stop after three passes unless explicitly extended.
 
 ### Pass 1: Distill Substance and Structure
 
@@ -65,7 +65,7 @@ Verify meaning or behavior again. For code, run the narrowest useful formatter a
 - Prefer information density over blunt truncation.
 - Compare the final artifact with both the original and the preservation contract.
 
-Run the strongest proportionate verification available. Continue with additional passes while a concrete safe reduction remains.
+Run proportionate verification. Stop unless another material reduction is concrete and the three-pass cap remains.
 
 ## Apply Artifact-Specific Rules
 

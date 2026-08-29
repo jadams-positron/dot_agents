@@ -1,6 +1,6 @@
 ---
 name: pr-description
-description: Draft, verify, create, or refresh rich GitHub pull-request descriptions grounded in the exact diff and observed test evidence. Any outward PR create/edit requires matching evidence from, or dispatch of, a mandatory independent clean-context abstraction review. Use whenever a workflow opens a PR, edits a PR body, prepares stacked PR metadata, or the user asks to write, rewrite, clean up, expand, or add Summary, How to Review, Testing, or Example Usage sections to a PR description.
+description: Draft or validate a PR description from a frozen diff and observed evidence. Operate as a leaf when called by another workflow, consuming its review packet without repairing code or restarting gates. Standalone outward writes perform at most one risk-required review.
 ---
 
 # PR Description
@@ -27,31 +27,14 @@ already granted by the user or calling workflow.
    appended a `<!-- CURSOR_SUMMARY -->` ... `<!-- /CURSOR_SUMMARY -->` block at
    the end, retain that exact block for preservation during the rewrite.
 
-## Require abstraction evidence before any outward write
+## Stay a leaf and consume review evidence
 
-Drafting text locally does not require this gate. Running `gh pr create`,
-`gh pr edit`, or any equivalent outward PR-body write does.
-
-1. Use the installed `abstraction-review` skill's
-   `references/independent-dispatch.md` contract
-   (`independent-abstraction-review/v1`) with the `diff` profile. Freeze the
-   target ref, full target-tip, merge-base, head and tree OIDs, exact
-   canonical read-only binary diff and SHA-256. For an existing PR, resolve live
-   endpoints from GitHub.
-2. Accept caller evidence only when its complete canonical packet is `ALIGNED`
-   and its declared, reviewer-echoed, and freshly recomputed target matches.
-3. If evidence is absent or stale, dispatch a new reviewer under that contract.
-   In Codex use `fork_turns: "none"`; another harness must provide equivalent
-   fresh context and capability enforcement. Exclude the body draft,
-   implementation plan, authoring conversation, prior findings, fixes, review
-   output, and suspected abstractions.
-4. If the report is incomplete, contaminated, or not `ALIGNED`, stop without
-   publishing and return every finding to the calling workflow for repair.
-   After any repair, rebase, sync, amend, or other target change, a different
-   fresh reviewer must review the new exact artifact.
+Drafting text locally requires no review gate. For an outward write, consume the root workflow's frozen target, risk tier, checks, and review packet. Low-risk work needs no independent review unless repository policy requires one. Medium- and high-risk work must carry the review evidence required by `change-control`; when that includes canonical `abstraction-review` evidence, require an `ALIGNED` packet whose declared, echoed, and recomputed target matches.
+3. If caller evidence is absent or stale, return the mismatch; do not dispatch a reviewer when operating as a leaf.
+   A standalone invocation may dispatch at most one risk-required reviewer with fresh context. If it fails or requests repair, stop.
+4. If the report is incomplete, contaminated, or not passing, stop and return it to the root. Never repair code or restart caller gates.
 5. Perform the canonical pre-use check immediately before the outward write.
-   On any mismatch, discard the evidence and restart. After the write, recheck;
-   if the target raced, refresh the evidence and body before reporting success.
+   On mismatch, stop. After writing, report a target race rather than recursively refreshing.
 
 Create new PRs as drafts. This skill never marks them ready; the calling
 workflow may do that only after its remaining review, CI, and repair gates.

@@ -7,9 +7,7 @@ description: Run an auditable three-pass, multi-agent review of an entire codeba
 
 Review the whole requested code surface, turn evidence-backed findings into a
 bounded work graph, and integrate independently audited worker commits into the
-current branch. Keep remote delivery outside this skill; when paired with
-`work-issue`, return the clean integrated branch to that workflow before it
-pushes or opens a PR.
+current branch. This is a root workflow under `change-control`; do not run it beneath `work-issue` or another orchestrator. Return before remote delivery.
 
 ## Authorization and ownership
 
@@ -225,16 +223,13 @@ repair. Record the merge SHA and evidence before scheduling dependents.
    same repair and implementation-bound rules. After any repair, rerun affected
    gates and use a different fresh abstraction reviewer against the new exact
    head. An unverified premise that needs an owner's answer blocks integration.
-7. Repeat the affected gates until both final audits are clean, with the same
-   three-attempt escalation bound.
+7. Permit at most two total final-repair rounds. Rerun only affected gates and stop with remaining findings when budget is exhausted.
 8. Verify every campaign commit is reachable from the integration branch and
    the worktree paths match the state file. Remove only clean,
    campaign-created worktrees without force, then delete only fully merged
    campaign branches. Leave any uncertain artifact intact and report it.
 
-When composed with `work-issue`, return control before any push and let that
-skill perform its gate chain, tree-preserving history cleanup, PR, CI, and
-Bugbot workflow. Report the integrated branch and SHA, accepted/rejected counts,
+Return before any push. A later standalone delivery workflow may consume the stable candidate; neither workflow invokes the other. Report the integrated branch and SHA, accepted/rejected counts,
 unit commits and merge SHAs, test evidence, cleanup result, and open decisions.
 Include the complete canonical abstraction evidence packet and every finding's
 disposition.

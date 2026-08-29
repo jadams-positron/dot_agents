@@ -25,12 +25,12 @@ Prove that a new implementation produces the same output as the old one — or t
 
 5. Diff normalized OLD vs NEW. For text: `diff -ru out-old-norm out-new-norm`. For JSON: canonicalize (`jq -S`) then diff, or use a structural differ. Compare exit/status codes exactly — never normalize them. A clean diff over a representative corpus is the parity claim.
 
-6. Triage every surviving diff. Classify each into intended-change (a known, justified behavior change — link it to a `semantic-delta-catalog` entry) or regression. Record verdicts in the triage table (`references/harness.md`). Route regressions to `fix-all`; re-run steps 3–5 until only intended diffs remain.
+6. Triage every surviving diff, record verdicts, and return regressions to the root orchestrator; do not invoke repair. Permit one rerun after repairs by default, then return remaining differences for escalation.
 
 7. (Optional, for ongoing protection) Freeze the normalized NEW output as a golden fixture. Generalize the project's golden-snapshot convention — golden fixtures under a `testdata/` dir plus an `-update` regeneration flag, with a `normalize()` pass applied before the equality assertion. Commit the golden; the checked-in test then fails on any future normalized-output drift, and regeneration is one flag. See `references/harness.md`.
 
 ## Gate
-The parity gate passes only when, over a representative corpus, the normalized OLD/NEW diff contains **zero unexplained differences**: every diff is either eliminated (regression fixed upstream) or recorded as intended with a linked justification, and exit/status codes match exactly. A parity claim without a corpus that exercises the branches is not a pass — note corpus coverage explicitly. Freezing the normalized NEW output as a committed golden with an `-update` regen path (step 7) is optional for a one-shot parity check but required to keep the parity from silently rotting.
+The parity gate passes only with **zero unexplained differences** over a representative corpus. Budget exhaustion with differences remaining is escalation, not a pass.
 
 ## References
 - `references/normalization.md` — per-output-type checklist of what to strip and canonicalize (JSON, CLI text, logs), with concrete regexes, `jq`, and `sed` snippets, and the over-normalization caution.

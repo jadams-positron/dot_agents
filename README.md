@@ -21,7 +21,9 @@ skills/
 ```
 
 See [conductors/README.md](conductors/README.md) for the Agent Deck design,
-configured conductors, setup commands, and verification.
+configured conductors, setup commands, and verification. See
+[Change-Control Flow](docs/change-control-flow.md) for the shared bounded coding
+workflow and root/leaf control model.
 
 ## Skills
 
@@ -46,7 +48,8 @@ over with `cutover-strangler-runbook`.
 
 | Skill | Description |
 |---|---|
-| [`distill`](skills/distill/SKILL.md) | Iteratively simplify code, prose, and communication through at least three verified reduction passes; also structures internal docs and preserves the publishing workflow for runbooks. |
+| [`change-control`](skills/change-control/SKILL.md) | Shared smallest-diff, risk-proportionate, single-orchestrator contract. |
+| [`distill`](skills/distill/SKILL.md) | Simplify through one proportionate pass by default, capped at three. |
 | [`document-research`](skills/document-research/SKILL.md) | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
 | [`file-issue`](skills/file-issue/SKILL.md) | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
 | [`investigate-performance`](skills/investigate-performance/SKILL.md) | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |

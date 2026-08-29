@@ -159,21 +159,15 @@ scripts and ask the human to approve their current content with
 
 ## Worker and stack-owner contract
 
-A singleton worker runs `work-issue` end to end in the Agent Deck-created
-worktree and branch.
-
-A multi-issue worker is the sole writer and integrator for the entire chain. It:
+Apply `change-control`. A singleton uses standalone `work-issue` as its sole root; the launcher adds no second review chain. For a multi-issue chain, `work-gh-issues` is the sole root and stack owner. It:
 
 1. Reuses the Agent Deck worktree and actual root branch; it creates no sibling
    worktrees and launches no per-issue writers.
 2. Runs `gh stack init --base <default> <actual-root-branch>`, then processes
    issues bottom-to-tip. For each child it uses `gh stack add <child-branch>` and
-   runs `work-issue` in stack-member mode: implement, test, run its independent
-   clean-context abstraction review and audit gates, and leave one signed issue
-   commit without pushing or creating a PR independently.
+   runs delegated `work-issue`: implement the bounded unit, run focused checks, leave one signed commit, and return without dispatch, broad review, push, PR, or CI.
 3. Runs `gh stack rebase` and the affected local verification gates before
-   freezing any review target. It then runs the local multi-angle review and
-   `fix-all` gates before the first submission. It requires a clean worktree,
+   freezing any review target. It then runs one risk-appropriate aggregate review before submission and repairs only blocking or coupled findings within two total repair rounds. It requires a clean worktree,
    freezes edits, fetches the default
    base, and records the default-base ref, full tip, merge-base, stack-tip and
    tree OIDs, ordered stack OIDs and bounds, plus the exact binary diff and
@@ -194,9 +188,7 @@ A multi-issue worker is the sole writer and integrator for the entire chain. It:
    `--require-live-evidence`. It writes and validates a separate body file for
    every member, then runs `gh stack submit --auto` without another rebase.
    No amend, rebase, sync, or content-changing command may occur between the
-   final aggregate review snapshot and submission. If one is required, discard
-   the review and bodies, perform it, reverify, and use a different fresh
-   abstraction reviewer before submission.
+   final aggregate review snapshot and submission. If a material code change is required, consume a repair round and rerun only the affected checks and review concerns before submission.
    After submission it applies those bodies and corrects every PR's title,
    assignee, labels, `Closes #<issue>` metadata, and base; no body is reused
    across stack members.
@@ -207,14 +199,7 @@ A multi-issue worker is the sole writer and integrator for the entire chain. It:
    `gh stack rebase --upstack` and `gh stack sync`, which cascade-rebases and
    atomically pushes the chain with leases. It then refreshes expected SHAs and
    rechecks every descendant's mergeability and checks.
-6. Handles CI and Bugbot bottom-to-tip. Every real fix is amended into that
-   issue's single commit, followed by another whole-stack rebase and sync. It
-   treats any content amendment or cascade rebase as invalidating the aggregate
-   abstraction review. After the stack stabilizes, and before any PR becomes
-   ready, it dispatches a different fresh `abstraction-review` agent under the
-   same canonical `stack` contract against the new frozen target, applies
-   `fix-all` to every validated finding, and repeats the stack rebase/sync,
-   checks, and fresh review until the final tip is clean. It
+6. Handles CI and Bugbot bottom-to-tip within the same two-round budget. Only blocking or coupled fixes enter an issue commit, followed by stack rebase and sync. A material code amendment reruns affected checks and review concerns; a history-only rebase verifies the target without restarting every review. It
    reruns `pr-description` for every affected PR against its final immediate
    base and head. Before each rewrite it fetches the live body and preserves any
    Bugbot summary appended at the end byte-for-byte, using that snapshot as the
