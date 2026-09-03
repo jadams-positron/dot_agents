@@ -146,7 +146,6 @@ class DiscoveryTests(unittest.TestCase):
             "work",
             "parent-id",
             "api",
-            "gpt-test",
             [42],
             "main",
             "api",
@@ -155,6 +154,8 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(command[command.index("--title") + 1], "api#42")
         self.assertEqual(command[command.index("--worktree") + 1], "api#42")
         self.assertEqual(command[:4], ["agent-deck", "-p", "work", "launch"])
+        self.assertEqual(command[command.index("--cmd") + 1], "pi --no-approve")
+        self.assertNotIn("--model", command)
         self.assertEqual(command[command.index("--parent") + 1], "parent-id")
         self.assertIn("--assert-done", command)
         self.assertIn("Run the live gate.", command[command.index("--message") + 1])

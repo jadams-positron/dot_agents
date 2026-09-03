@@ -10,12 +10,14 @@ These rules refine Agent Deck's shared conductor policy for GitHub issue work.
 - Do not clone a missing repository without explicit permission.
 - Do not discover or launch new work during a heartbeat.
 
-## Model Selection
+## Worker Runtime
 
-- Keep the `work-gh-issues` default on Codex `gpt-5.6-sol`.
-- If the user separately authorizes a Claude worker or verifier, require
-  `claude-opus-5`; never launch or accept work from `claude-fable-5`.
-- Verify the live session model after launch. Stop a mismatched child before
+- Keep the `work-gh-issues` default on Pi using its configured default model.
+  Launch it as `pi --no-approve`; do not pass a model override.
+- A different worker runtime requires separate user authorization. If the user
+  authorizes Claude, require `claude-opus-5`; never launch or accept work from
+  `claude-fable-5`.
+- Verify the live session runtime after launch. Stop a mismatched child before
   accepting its result, then replace it through its owning conductor.
 
 ## Safe Worker Responses

@@ -93,8 +93,7 @@ under that key, and only then remove `active_batch`. Preserve unrelated fields.
   workers. Reconcile each child against owner IDs across every batch, then read
   its output after waiting, error, or completion events.
 - Send messages only to waiting workers, and only when `POLICY.md` authorizes
-  the answer. Use `agent-deck session approve` for visible Codex approval
-  menus; never send a digit through `session send`.
+  the answer. Never send a bare menu choice through `session send`.
 - A worker is complete only when Agent Deck records its completion sentinel.
   Update only its owning batch plus `task-log.md` after every action or material
   event; do not disturb other batches.

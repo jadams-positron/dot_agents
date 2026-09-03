@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch one isolated Agent Deck Codex owner per issue or PR stack."""
+"""Launch one isolated Agent Deck Pi owner per issue or PR stack."""
 
 from __future__ import annotations
 
@@ -53,7 +53,6 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Append additional worker instructions from this UTF-8 text file.",
     )
-    parser.add_argument("--model", default="gpt-5.6-sol", help="Codex model ID.")
     parser.add_argument(
         "--profile",
         default=default_agent_deck_profile(),
@@ -283,7 +282,6 @@ def launch_command(
     profile: str,
     parent: str | None,
     group: str,
-    model: str,
     issues: list[int],
     base_branch: str,
     name_prefix: str,
@@ -300,9 +298,7 @@ def launch_command(
         "--group",
         group,
         "--cmd",
-        "codex",
-        "--model",
-        model,
+        "pi --no-approve",
         "--worktree",
         name,
         "--new-branch",
@@ -655,7 +651,6 @@ def main() -> int:
             args.profile,
             parent,
             group,
-            args.model,
             chain,
             default_branch,
             args.name_prefix,

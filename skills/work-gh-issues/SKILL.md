@@ -1,6 +1,6 @@
 ---
 name: work-gh-issues
-description: Discover and fan out actionable GitHub issues into isolated Agent Deck Codex sessions, assigning one owner to each independent issue or native GitHub pull-request stack and applying shared end-to-end quality gates. Use when the user asks to batch, start, launch, work, or orchestrate GitHub issues through Agent Deck, or invokes /work-gh-issues. Resolve a missing repository by offering the five most recently used repositories, and resolve missing issue numbers by listing open, non-blocked, not-already-claimed issues from the selected repository.
+description: Discover and fan out actionable GitHub issues into isolated Agent Deck Pi sessions, assigning one owner to each independent issue or native GitHub pull-request stack and applying shared end-to-end quality gates. Use when the user asks to batch, start, launch, work, or orchestrate GitHub issues through Agent Deck, or invokes /work-gh-issues. Resolve a missing repository by offering the five most recently used repositories, and resolve missing issue numbers by listing open, non-blocked, not-already-claimed issues from the selected repository.
 ---
 
 # Work GitHub Issues
@@ -129,7 +129,10 @@ Defaults:
 - Session title and requested branch handle: `work#<issue>`; override the
   `work` portion with `--name-prefix` when the user names another scheme.
 - Worktrees: the repository's configured Agent Deck worktree location.
-- Agent and model: Codex `gpt-5.6-sol`.
+- Agent and model: Pi with its configured default model. The launcher uses
+  `pi --no-approve` so unattended workers cannot stall on project trust; context
+  files and global skills still load, while untrusted project-local resources do
+  not.
 
 Use `--instructions-file` to append user-specific authorization, validation,
 coordination, or deployment constraints to every worker prompt. Do not place
@@ -141,8 +144,8 @@ returned by `agent-deck launch` as authoritative. Do not add `--no-parent`:
 parent linkage supplies status notifications without coupling execution.
 
 The launcher scopes every Agent Deck lookup to `--profile`, uses `--parent` or
-the current Agent Deck session for durable child events, and requests the Codex
-completion sentinel. With `--json`, it returns one manifest containing each
+the current Agent Deck session for durable child events, and requests the Agent
+Deck completion sentinel. With `--json`, it returns one manifest containing each
 batch's stable ID plus each owner's stable session ID, issue chain, branch,
 worktree, group, and parent. Conductors store concurrent manifests by batch ID.
 
