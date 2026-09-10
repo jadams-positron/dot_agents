@@ -1,4 +1,4 @@
 interface:
   display_name: "Work GitHub Issues"
-  short_description: "Launch isolated issue and stack owners"
-  default_prompt: "Use $work-gh-issues to find actionable issues, map their dependencies and write-set overlap, and launch one Agent Deck owner per independent issue or native GitHub PR stack."
+  short_description: "Deliver minimal verified issue features"
+  default_prompt: "Use $work-gh-issues to discover actionable issues and launch one durable Agent Deck owner per independent issue or native PR stack. Preserve original criteria, adjudicate unique feedback in batches, resume recorded decisions, and finish review-ready or honestly blocked without routine approval loops."

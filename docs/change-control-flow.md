@@ -1,187 +1,42 @@
 # Change-Control Flow
 
-This is the control flow shared by bounded coding workflows. The canonical policy is [`change-control`](../skills/change-control/SKILL.md).
+The authoritative policy is [`change-control`](../skills/change-control/SKILL.md); issue dispatch/lifecycle lives in [`work-gh-issues`](../skills/work-gh-issues/SKILL.md).
 
 ```text
-USER REQUEST
-    |
-    v
-+--------------------------------------+
-| Select exactly one root orchestrator |
-|                                      |
-| standalone issue   -> work-issue     |
-| issue stack        -> work-gh-issues |
-| explicit long run  -> wiggum         |
-| broad refactor     -> refactor-campaign
-+--------------------------------------+
-    |
-    v
-+----------------------------------+
-| Freeze change-control contract   |
-|                                  |
-| - acceptance criteria            |
-| - safety invariants              |
-| - base and candidate head        |
-| - expected files and diff size   |
-| - generated artifacts            |
-| - risk tier and required gates   |
-| - repair and retry budgets       |
-+----------------------------------+
-    |
-    v
-+-------------+     +----------------+     +------------------+
-| LOW RISK    |     | MEDIUM RISK    |     | HIGH RISK        |
-| focused     |     | proving test   |     | complete gate    |
-| checks; no  |     | and one        |     | and one combined |
-| reviewer by |     | focused review |     | multi-angle review
-| default     |     |                |     |                  |
-+------+------+     +-------+--------+     +---------+--------+
-       |                    |                        |
-       +--------------------+------------------------+
-                            |
-                            v
-                 +------------------------+
-                 | Implement the smallest |
-                 | correct diff           |
-                 |                        |
-                 | - frozen scope only    |
-                 | - focused checks       |
-                 | - track diff growth    |
-                 +-----------+------------+
-                             |
-                             v
-                 +------------------------+
-                 | Classify each finding  |
-                 +------------------------+
-                   |       |       |      |
-                   v       v       v      v
-                BLOCKING COUPLED UNRELATED UNCERTAIN
-                   |       |       |      |
-                   |       |       |      +--> STOP AND ASK
-                   |       |       +---------> REPORT ONLY
-                   +---+---+
-                       |
-                       v
-                  within budget?
-                    /      \
-                  yes      no
-                   |        |
-                   v        +--------------> STOP AND ASK
-                 repair
-                   |
-                   v
-          compare actual changed surface
-          with the frozen estimate
-                   |
-             expansion needed?
-                 /      \
-               no       yes
-               |         |
-               v         +----------------> STOP AND ASK
-     +-------------------------+
-     | Freeze stable candidate |
-     | exact base/head/diff     |
-     +------------+------------+
-                  |
-                  v
-     +-------------------------+
-     | One risk-appropriate    |
-     | review                  |
-     +------------+------------+
-                  |
-                  v
-        validate and classify
-             review findings
-                  |
-          blocking or coupled?
-              /         \
-            no          yes
-            |            |
-            |      repair round left?
-            |         /       \
-            |       yes       no
-            |        |         |
-            |        v         +----------> STOP AND ASK
-            |    focused repair
-            |    and invalidated
-            |    checks only
-            |        |
-            +--------+
-                  |
-                  v
-     +-------------------------+
-     | Required final gate     |
-     | once on final candidate |
-     +------------+------------+
-                  |
-             gate passes?
-              /       \
-            yes       no
-             |         |
-             |    classify failure
-             |    and consume repair
-             |    budget, or stop
-             |
-             v
-     +-------------------------+
-     | pr-description leaf     |
-     | consumes root evidence  |
-     +------------+------------+
-                  |
-                  v
-     +-------------------------+
-     | Create draft PR         |
-     | CI and Bugbot use the   |
-     | same repair budget      |
-     +------------+------------+
-                  |
-                  v
-     +-------------------------+
-     | Final verification      |
-     | - latest SHA green      |
-     | - no blocking findings  |
-     | - scope/budget recorded |
-     +------------+------------+
-                  |
-                  v
-     +-------------------------+
-     | Mark ready and report   |
-     | Never merge             |
-     +-------------------------+
+Select repository/issues and one durable owner per independent issue/stack
+    ↓
+Persist full-chain reservations and launch intent → reconcile native receipt
+    ↓
+Freeze criteria, real authority/safety boundaries, risk and evidence gates
+(files and LoC remain estimates unless explicitly restricted)
+    ↓
+One fresh abstraction-led minimal design → one alternative search only on doubt
+    ↓
+Local implementation ↔ focused tests/diagnosis
+(no review-batch charge for ordinary TDD iterations)
+    ↓
+Freeze candidate → one risk-appropriate review
+    ↓
+Existing verification stage: deduplicate and adjudicate a coherent claim batch
+    ├─ required_now → freeze accepted set → repair → affected checks → one push
+    ├─ follow_up    → useful deduplicated tracking, not feature expansion
+    ├─ no_change   → retain evidence and defensible response
+    └─ needs_evidence → one targeted investigation at unchanged premises
+    ↓
+Current-target canonical evidence + required final gate → draft PR
+    ↓
+Completed current-SHA CI/reviewer batch → new/invalidated claims only
+    ↓
+Verified criteria + current evidence + no required/critical unresolved finding?
+    ├─ yes → review_ready (optional observations may remain; never merge)
+    └─ genuinely blocked/exhausted → stopped_blocked, incomplete draft,
+       one report and owner/session/goal-bound continuation suspension
 ```
 
-## Leaf-skill rule
+One root owns each feature/stack ledger and two total review-driven repair batches, shared across local/external review and restarts. Three unchanged failures are a separate no-progress safeguard. A fresh required canonical packet does not reset decisions, budgets, or scope.
 
-```text
-ROOT ORCHESTRATOR
-    |
-    +-- fess ---------------------- read once; return findings
-    +-- abstraction-review -------- review frozen target; return evidence
-    +-- fix-all ------------------- repair supplied finite set once
-    +-- pr-description ------------ draft or validate once
-    `-- differential harness ------ compare; return differences
+The dispatcher writes launch manifests and supervision summaries only. A singleton `work-issue` is its own root; stack members are delegated leaves. Only the stack root changes stack history, atomically syncs refs with explicit expectations, and verifies affected descendants at their latest SHAs.
 
-Leaves never dispatch, invoke an orchestrator, broaden scope, own retries,
-commit, push, repair their own findings, or restart the caller.
-```
+Leaves inspect, draft, validate, or implement their supplied unit and return evidence. They do not acquire independent orchestration, repair their own review findings, or restart the caller. `pr-description` consumes native evidence and root readiness; it never makes advisory findings disappear or fabricates `ALIGNED`.
 
-## Stack flow
-
-```text
-work-gh-issues  [SOLE ROOT / STACK OWNER]
-    |
-    +-- freeze stack and per-issue budgets
-    +-- issue A -> delegated work-issue -> focused checks -> commit A
-    +-- issue B -> delegated work-issue -> focused checks -> commit B
-    +-- issue C -> delegated work-issue -> focused checks -> commit C
-    +-- rebase stack
-    +-- freeze aggregate candidate
-    +-- one aggregate risk-appropriate review
-    +-- bounded repairs routed to the owning issue
-    +-- one final stack gate
-    +-- pr-description leaf per immediate PR diff
-    +-- submit stack
-    +-- bounded CI/Bugbot handling bottom-to-tip
-    +-- mark ready when every latest SHA is green
-    `-- never merge
-```
+An Agent Deck completion/idle/error event triggers reconciliation, not a success verdict. Complete a goal only after its actual objective is audited; a blocked goal remains incomplete, and a broader goal may have other authorized work.

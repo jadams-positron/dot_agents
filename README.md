@@ -23,7 +23,8 @@ skills/
 See [conductors/README.md](conductors/README.md) for the Agent Deck design,
 configured conductors, setup commands, and verification. See
 [Change-Control Flow](docs/change-control-flow.md) for the shared bounded coding
-workflow and root/leaf control model.
+workflow and root/leaf control model. Use the [coherent rollout guide](docs/work-gh-issues-rollout.md)
+for the versioned issue-owner, review-admission, and goal-terminal bundle.
 
 ## Skills
 
@@ -53,11 +54,11 @@ over with `cutover-strangler-runbook`.
 | [`document-research`](skills/document-research/SKILL.md) | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
 | [`file-issue`](skills/file-issue/SKILL.md) | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
 | [`investigate-performance`](skills/investigate-performance/SKILL.md) | Turn a vague performance concern into a rigorous benchmark, profiling, race, and fuzz investigation with reproducible evidence. |
-| [`pr-description`](skills/pr-description/SKILL.md) | Draft, validate, create, or refresh evidence-backed PR descriptions; outward writes require exact-target evidence from a mandatory independent clean-context abstraction review. |
+| [`pr-description`](skills/pr-description/SKILL.md) | Draft or validate evidence-backed PR descriptions; consume root readiness and current-target native review evidence without repairing or restarting caller gates. |
 | [`reconcile-issues`](skills/reconcile-issues/SKILL.md) | Audit a set of GitHub issues (epic children, a title prefix, a label) against the codebase — which shipped, which are superseded, which need re-scoping — then execute the closes, consolidations, epic rewrite, and native sub-issue sync on approval. |
 | [`refactor-campaign`](skills/refactor-campaign/SKILL.md) | Review an entire codebase for a broad refactoring goal, validate findings into dependency-ordered work units, integrate audited worker commits locally, and independently review the final diff for abstraction alignment. |
-| [`work-gh-issues`](skills/work-gh-issues/SKILL.md) | Discover actionable issues, map interdependencies into GitHub PR stacks, and fan them out into isolated Agent Deck Pi sessions with shared quality and clean-context abstraction-review gates. |
-| [`work-issue`](skills/work-issue/SKILL.md) | Work a GitHub issue end to end — implement in a worktree, run an independent clean-context abstraction review and the other quality gates, open a stack-aware draft PR, squash iterative history, drive CI to green, and resolve Bugbot findings. |
+| [`work-gh-issues`](skills/work-gh-issues/SKILL.md) | Deliver minimal verified features through durable Agent Deck issue/stack owners, batched feedback dispositions, and honest terminal outcomes. |
+| [`work-issue`](skills/work-issue/SKILL.md) | Implement one issue through a verified review-ready PR, or serve as a delegated stack member under one root. |
 
 ## Syncing
 
@@ -75,16 +76,18 @@ repositories:
     url: git@github.com:jadams-positron/dot_agents.git
     version: main
 skills:
-  - source: git@github.com:jadams-positron/dot_agents.git
+  - source: ~/code/github/jadams-positron/dot_agents/skills
     agents:
       - claude-code
-      - codex
+      - generic
     global: true
     # select: [document-research, file-issue]
 ```
 
-`repositories` keeps a local working checkout of this repo; `skills` installs
-the skill collections into your agent directories.
+`repositories` keeps a local working checkout; `skills` installs its skill
+subdirectory into agent directories (`generic` targets `~/.agents/skills`). Do
+not use a Git root as the skill source: the resolver can hard-reset it. Preserve
+the configured retained skill set and preview targeted changes before any prune.
 
 `select` matches each skill's `name` from its `SKILL.md` frontmatter. Omit
 `select` to install every skill in the repo. Select deliberately: every

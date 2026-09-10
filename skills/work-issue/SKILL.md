@@ -1,66 +1,74 @@
 ---
 name: work-issue
-description: Work one GitHub issue through a bounded, risk-proportionate implementation and review-ready PR. Freeze acceptance criteria and a change budget, produce the smallest correct diff, use one root orchestrator and one stable-candidate review, run focused checks plus the required final gate, and stop before material expansion. Merge is never part of the flow.
+description: Use when asked to implement one GitHub issue and deliver a verified, review-ready PR, or a delegated member of a native PR stack.
 ---
 
 # Work Issue
 
-Drive one issue to a review-ready PR under `change-control`. The human merges.
+Deliver the smallest complete feature under `change-control`. The human merges. Read the shared policy, its feedback-disposition reference, and [the consume-only upstream caller contract](../change-control/references/upstream-skills.md). Do not reinterpret every review suggestion as acceptance criteria or invoke a conflicting upstream orchestration flow.
 
-## Modes
+## Modes and authority
 
-In **standalone mode**, this is the sole root orchestrator and owns budgets, dispatch, repairs, commits, reviews, pushes, CI, and PR state.
+**Standalone:** act as this issue's sole root, owning its contract, ledger, planning/review dispatch, repairs, commits, pushes, CI, and outcome.
 
-Use **delegated mode** only when an outer workflow names itself as root. Read the issue, implement the frozen bounded unit, run focused checks, create the requested local commit when authorized, and return candidate evidence. Do not dispatch, broadly review, push, open a PR, handle CI, retry orchestration gates, or modify scope. Stack members use delegated mode; the stack owner is root.
+**Delegated:** an outer root supplies the feature contract, worktree, accepted unit, and remaining budgets. Implement, run focused checks, leave the requested local commit when authorized, and return evidence. Do not dispatch, broadly review, push, open PRs, handle CI, restart gates, or reset scope/budgets. A stack member is delegated; its stack owner alone orchestrates.
 
-## Authorization
+Invocation authorizes necessary in-feature implementation/corrections, proving tests, `@me` assignment, unambiguous project `In Progress` status, issue-branch commits and explicit-refspec pushes, draft PRs, supported labels/closing metadata, justified thread dispositions, and review-ready state. Useful deduplicated follow-up issues are authorized through repository `issue-templates`/`file-issue` conventions. Do not manufacture metadata or tickets for trivial preferences.
 
-Standalone invocation authorizes assigning `@me`, setting an unambiguous delivery project to `In Progress`, issue-branch commits, explicit-refspec pushes, a draft PR, ready state, and resolved review threads. It does not authorize merge, invented metadata, another repository, expanded scope, deleted work, or shared-history force pushes.
+Preserve explicit user restrictions, credentials, script trust, repository boundaries, and shared-history ownership. No implicit merge, deploy, release, production-pin/protection changes, deleted user work, or new product scope. Estimated file lists and LoC are not prohibitions. Autonomous/delegated execution does not inherit routine wait-for-human checkpoints.
 
 ## 1. Read, claim, and freeze
 
-Fetch complete issue context and relationships with `gh issue view`. Stop for a closed issue, strict blocker, or ambiguity. Restate acceptance criteria and safety invariants. Resolve base. Record expected files, approximate hand-written diff, generated artifacts, risk, checks, mode, root, and default budgets.
+Fetch the complete issue, comments, and native dependencies with `gh issue view`. Resolve genuine selection/requirements ambiguity and strict blockers. Freeze raw criteria, acceptance checks, non-goals, safety/authority boundaries, base, risk, expected handwritten surface, generated artifacts, and required gates.
 
-In standalone mode assign `@me`, resolve the delivery project from native relationships or policy, set exact `In Progress`, apply only supported metadata, and verify issue state.
+Standalone owners assign `@me` and verify supported project/issue state. Do not invent a delivery project. Reuse an orchestrator-created branch/worktree exactly; otherwise create one from the resolved base. Never nest or rename it. Only the recorded stack owner may run `gh stack rebase`, `submit`, or `sync`.
 
-## 2. Isolate
+For Agent Deck owners, use the versioned owner state protocol in `work-gh-issues` and its `references/owner-state.md`. Initialize only absent state; resume the same ledger, actual identities, expected SHAs, and counters after interruption. Parent dispatchers never edit owner ledgers or branches. Require compatible goal-terminal support before starting this workflow revision; do not auto-adopt an active legacy session or silently invent missing history.
 
-Reuse an orchestrator-created worktree and branch exactly; otherwise create one from resolved base. Never nest or rename it. Only the recorded stack owner runs `gh stack rebase`, `submit`, or `sync`. Stop on remote movement or conflicting checkout ownership.
+## 2. Plan through the existing abstraction
 
-## 3. Implement the smallest correct diff
+The root performs the one clean-context `abstraction-review` planning pass required by `change-control`: existing owner, extension points, analogues/history/tests, null-diff shape, and **“Can this feature be implemented in less than 100 lines?”**
 
-Implement only frozen criteria. Follow repository TDD and changelog rules. Run named acceptance and focused checks while editing.
+On concrete doubt, make one fresh **“There MUST be a better way!”** alternative search. Choose the smallest complete, clear solution without changing the criteria. A justified larger result is acceptable. This is not final review evidence. A delegated member returns planning questions to its root rather than dispatching another owner.
 
-Classify discoveries under `change-control`. Fix blocking and coupled findings within budget. Report unrelated findings without code changes. Stop before uncertain scope, another repository, a new subsystem, public-behavior expansion, undeclared files, or materially larger diff.
+## 3. Implement and test locally
 
-In delegated mode, finish the requested local commit and return here.
+Use repository TDD/changelog conventions and the existing shared path. Iterate implementation → focused tests → diagnosis/correction locally. Two different test failures are not two review-driven repair batches.
 
-## 4. Freeze and review
+Correct necessary in-feature behavior even in an unestimated file. Update the estimate and retain a useful reproducer. Record separable discoveries without implementing them. Investigate uncertain premises; ask only for a genuinely missing requirement, access, trust, or authority decision.
 
-Require a clean worktree and record base tip, merge-base, head/tree OIDs, exact diff, and surface totals.
+In delegated mode, finish the authorized coherent commit and return candidate/acceptance evidence here. Do not run a per-member broad review in addition to the aggregate stack review.
 
-- **Low:** no independent review unless policy requires one.
-- **Medium:** one focused review containing relevant correctness, test, and abstraction lenses.
-- **High:** one combined multi-angle review satisfying required safety and abstraction evidence.
+## 4. Freeze and review once
 
-Use `fess` only as a read-only lens when warranted. Do not invoke `fix-all` or `wiggum`. Leaf reviewers return evidence and never repair or dispatch.
+Finish necessary rebases, require a clean worktree, and freeze base tip, merge-base, head/tree OIDs, exact binary diff/digest, and surface totals. Apply the shared risk tier and repository-required review policy.
 
-Validate and classify findings. The root fixes blocking and coupled findings. Permit at most two total repair rounds. After repair, rerun affected checks and only invalidated review concerns. Repeat broad review only after material behavior, architecture, risk, or target change.
+Use one stable-candidate review. Its existing verification stage adjudicates unique claims in batches under the shared disposition contract; do not append another panel. Give necessity judges the raw criteria. Keep native abstraction reports and all dispositions, including optional/no-change concerns. Leaves inspect and return; they never repair or dispatch.
 
-## 5. Authoritative gate
+Only defensible `required_now` findings enter the frozen repair set. Count at most two review-driven batches total for this owner, shared with external review. Persist the set before repairing; batch corrections and rerun affected checks. Recompute every invalidated mandatory canonical packet with its required fresh-context/capability/target contract, without resetting the ledger or inviting unrelated cleanup.
 
-Run focused checks during edits, then the repository-required full gate once on the final candidate. Repeat only after later material code change. Stop after three unchanged failures without progress; distinct failures still consume the two-round repair budget. Retain safe live evidence when explicitly required.
+## 5. Gate and draft
 
-## 6. Draft PR
+Run the authoritative repository full gate on the final candidate; repeat only when later material changes invalidate it. Three attempts at the same failure without material progress are a separate backstop, not a quota on ordinary TDD iterations. Retain required safe live evidence.
 
-Commit with why and no AI attribution. Use `pr-description` as a leaf with the frozen issue, diff, checks, review packet, risk, budget, and live evidence. It consumes caller evidence rather than dispatching duplicate gates.
+Commit with why and required signing, without generated attribution. Give `pr-description` the exact immediate diff, criteria, observed checks/live evidence, native review packet, and explicit root readiness/dispositions. A leaf returns stale/missing evidence rather than rerunning the caller's gates. Nonblocking `ALIGNED WITH FINDINGS` stays native; real blockers and invalid provenance still stop readiness.
 
-Push explicitly and create a draft against resolved base. Assign `@me`, apply supported labels, include `Closes #<N>`, and verify live base/body.
+Persist the explicit push ref/expected remote SHA/new SHA before publishing. On a lost response, observe the remote instead of replaying history operations. Create a draft against the exact base; assign `@me`, apply supported labels, include `Closes #<N>`, and verify live base/body. Only the root performs publication.
 
-## 7. CI and Bugbot
+## 6. Collect CI and external feedback
 
-Handle both within the same repair budget. Classify before editing. Fix only blocking or coupled failures/findings, run affected checks, amend, and push safely. Stop on three unchanged failures or exhausted total budget. Report unrelated findings. Material repairs invalidate only relevant evidence; formatting, body, and evidence-only changes do not restart gates. Refresh the body only when implementation or evidence changed, preserving a trailing Bugbot summary.
+Collect completed required CI/reviewer runs for the current head with a persisted bounded deadline. Handle Bugbot, Droid, humans, and other configured sources through the same ledger, not separate loops. Missing required evidence is not success.
 
-## 8. Handoff
+Reuse supported old dispositions. Only new evidence or changed relevant premises/requirements reopen a claim. Batch unique new/invalidated claims for one independent adjudicator; no agent or code push for repeated comments alone. Preserve rejected/optional concerns and deduplicate worthwhile follow-ups before filing.
 
-Verify base ancestry, clean worktree, green latest SHA, and no blocking findings. Preserve the tree during any required history cleanup and use an explicit lease. Mark ready. Report PR/base/SHA, risk, expected versus actual surface, repair rounds, reviews/subagents, gates, dispositions, crossings, issue hygiene, and open decisions. Never merge.
+If an accepted required-now set remains, use the owner's remaining repair batch, proving tests, affected gates, and one explicit-lease push. For stacks, only the stack root amends/rebases upstack and atomically syncs the chain; recheck every affected descendant at its latest SHA.
+
+Refresh the PR body when implementation/evidence changes. Fetch the live body first, preserve its trailing Bugbot summary byte-for-byte, and validate with `--existing-body`. Body-only/evidence-only updates are not code-repair batches.
+
+## 7. Finish or stop once
+
+`review_ready` requires every original criterion verified, clean worktree, correct ancestry/ownership, latest required checks/reviews, complete current-target packets, and no required-now or critical unresolved finding. Optional suggestions do not require another implementation approval. Mark ready when authorized; never merge.
+
+`stopped_blocked` preserves the incomplete draft and exact unmet criterion/evidence/attempts. Persist and report once. Use the bound terminal integration to pause automatic goal continuation while leaving the goal incomplete; do not waive gates or repeatedly request the same repair allowance. No associated goal means record that observation, not create one merely to pause it. Completion/idle/error notifications are only events to reconcile, not proof of success.
+
+Complete an associated goal only after auditing its actual objective; this issue may satisfy only part of it. Report PR/base/latest SHA, criteria evidence, expected/actual surface, unique claims versus comments, dispositions/follow-ups, review/adjudication/repair counts, gates, and the honest outcome.

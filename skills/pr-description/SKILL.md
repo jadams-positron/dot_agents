@@ -29,12 +29,13 @@ already granted by the user or calling workflow.
 
 ## Stay a leaf and consume review evidence
 
-Drafting text locally requires no review gate. For an outward write, consume the root workflow's frozen target, risk tier, checks, and review packet. Low-risk work needs no independent review unless repository policy requires one. Medium- and high-risk work must carry the review evidence required by `change-control`; when that includes canonical `abstraction-review` evidence, require an `ALIGNED` packet whose declared, echoed, and recomputed target matches.
-3. If caller evidence is absent or stale, return the mismatch; do not dispatch a reviewer when operating as a leaf.
-   A standalone invocation may dispatch at most one risk-required reviewer with fresh context. If it fails or requests repair, stop.
-4. If the report is incomplete, contaminated, or not passing, stop and return it to the root. Never repair code or restart caller gates.
-5. Perform the canonical pre-use check immediately before the outward write.
-   On mismatch, stop. After writing, report a target race rather than recursively refreshing.
+Drafting text locally requires no review gate. For an outward write, consume the root's frozen target, risk, observed checks, native review packet, finding dispositions, and explicit readiness assessment. Low-risk work needs no independent review unless repository policy requires it. Medium/high-risk work carries the evidence required by `change-control`.
+
+When canonical abstraction evidence is required, its declared, echoed, and recomputed target must match and its provenance/capability/freshness contract must pass. Accept native `ALIGNED`, or `ALIGNED WITH FINDINGS` with an evidence-backed root assessment that its findings are nonblocking. Preserve the actual verdict in the evidence; never relabel advisory findings, invent passing evidence, or accept a real architecture blocker/`EVADES` report.
+
+- Return absent, stale, incomplete, or contaminated evidence to the root. As a leaf, never dispatch, repair code, or restart its gates.
+- A standalone invocation may dispatch at most one risk-required fresh-context reviewer. Return required-now findings or unresolved critical premises without starting a repair loop. Optional observations do not automatically require another implementation approval.
+- Perform the canonical pre-use check immediately before writing. Report a target race after an outward write rather than recursively refreshing.
 
 Create new PRs as drafts. This skill never marks them ready; the calling
 workflow may do that only after its remaining review, CI, and repair gates.

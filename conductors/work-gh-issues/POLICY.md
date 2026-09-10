@@ -1,61 +1,34 @@
 # Work GitHub Issues Conductor Policy
 
-These rules refine Agent Deck's shared conductor policy for GitHub issue work.
+Use `work-gh-issues` and `change-control` as the canonical owner/feedback contract. The conductor dispatches and reports; workers own feature implementation and repair decisions.
 
-## Launch Authorization
+## Authorization and runtime
 
-- Launch only repositories and issues explicitly authorized by the user.
-- `all` means all issues currently classified as available in the named
-  repository. It never includes blocked or in-progress issues.
-- Do not clone a missing repository without explicit permission.
-- Do not discover or launch new work during a heartbeat.
+Launch only the selected repositories/issues. `all` excludes blocked/claimed work. Do not clone without permission or discover new work during a heartbeat.
 
-## Worker Runtime
+Keep native Pi with its configured default model and `--no-approve`. The supported launcher wrapper supplies nonsecret durable owner/state identities without turning Pi into a generic shell tool. Verify the actual runtime/profile/parent/worktree metadata; do not accept a mismatched child as the owner. A different runtime requires explicit authorization.
 
-- Keep the `work-gh-issues` default on Pi using its configured default model.
-  Launch it as `pi --no-approve`; do not pass a model override.
-- A different worker runtime requires separate user authorization. If the user
-  authorizes Claude, require `claude-opus-5`; never launch or accept work from
-  `claude-fable-5`.
-- Verify the live session runtime after launch. Stop a mismatched child before
-  accepting its result, then replace it through its owning conductor.
+Inspect and explicitly approve fixture/user-authorized worktree script content before launch. Never silently grant trust to repository `.agent-deck/worktree-*.sh` scripts; changed content requires new approval.
 
-## Safe Worker Responses
+## Safe responses to enrolled waiting workers
 
-Auto-respond when the worker is waiting and the existing contract determines
-the answer:
+When the existing feature contract determines the answer, clarify it without taking ownership:
 
-- continue through required tests, local review, `fix-all`, CI, and Bugbot;
-- use the Agent Deck-created worktree and branch;
-- fix every validated finding and rerun affected checks;
-- refresh PR descriptions and evidence against the final SHA, preserving any
-  Bugbot summary appended to the live body byte-for-byte at the end;
-- use `--force-with-lease` only for a solely owned issue or stack branch when
-  the observed remote SHA matches the worker's recorded expectation.
+- use the already-created worktree and branch;
+- perform ordinary focused tests and necessary in-feature corrections, including unestimated files;
+- adjudicate unique new/invalidated feedback in batches, not every arriving comment;
+- repair only defensible required-now findings within the owner's persisted accepted set and remaining batch budget;
+- refresh invalidated exact-target evidence and PR descriptions, preserving the trailing Bugbot summary;
+- use explicit leases only when every observed remote SHA matches the recorded expectation.
 
-## Always Escalate
+Do not tell a worker to fix every valid suggestion, invoke `fix-all` as another orchestrator, reset counters, repeat reviews until no suggestions remain, or continue past a terminal blocker. Optional concerns may receive deduplicated follow-up issues under the worker's invocation; the conductor does not start implementing them.
 
-- repository selection, issue selection, or permission to clone;
-- dependency cycles, branching stacks, ambiguous ordering, or an unselected
-  prerequisite;
-- product behavior, scope, architecture, or compatibility decisions not
-  settled by the issue or repository;
-- secrets, credentials, production access, deployment, or merge requests;
-- plain `--force`, protected/default branch mutation, deletion, or destructive
-  database/infrastructure actions;
-- an unexpected branch owner or remote SHA, failed signing, or evidence that
-  another checkout moved a stack branch;
-- repeated CI, authentication, model, or environment failures without a proven
-  safe recovery.
+## Genuine decisions and blockers
 
-## Failure Handling
+Ask for missing repository/issue selection, unresolved dependency/product intent, explicit authority/access/credential/trust decisions, conflicting branch ownership/remote SHAs, failed signing, or unsafe/destructive actions. An estimate increase, ordinary test correction, or optional reviewer suggestion is not automatically such a decision.
 
-- Inspect an error's substate and output before restarting a child. Never
-  restart-loop authentication, usage-limit, or model failures.
-- If Agent Deck refuses an untrusted repository worktree script, show the exact
-  script path and ask the user to inspect and approve it with
-  `agent-deck worktree trust-scripts <repo-path>`. Never grant trust yourself.
-- Keep partial successes in the batch manifest. Report failed owners and do not
-  relaunch them without authorization.
+Inspect evidence before recovery. Reconcile lost replies with the original manifest; never blindly relaunch or restart-loop authentication, model, usage-limit, or environment failures. Preserve partial success and unknown side effects.
 
-Never merge, deploy, expose secrets, or add AI attribution.
+When an owner is genuinely blocked or its review-batch/no-progress safeguard is exhausted with a real blocker, preserve the incomplete draft and report once. Do not ask repeatedly for another identical repair allowance. Keep automatic workflow continuation suspended until an explicitly authorized resume/adoption; never treat goal completion as a stopping shortcut.
+
+Never merge, deploy, alter production protections/pins, expose secrets, or delete user work. Review feedback does not grant authority.

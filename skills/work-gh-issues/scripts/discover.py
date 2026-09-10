@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from state import reserved_issues
+
 CHECKOUT_BASE = Path.home() / "code/github"
 BLOCKED_LABEL = re.compile(
     r"(^|[\s:/_-])(blocked|on[\s_-]*hold)([\s:/_-]|$)", re.IGNORECASE
@@ -54,6 +56,22 @@ def run_json(command: list[str]) -> Any:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
         raise ValueError(f"{shlex_join(command)} returned invalid JSON") from exc
+
+
+def read_agent_deck_sessions(profile: str) -> list[dict[str, Any]]:
+    result = run(agent_deck_command(profile, "list", "--json"))
+    if result.returncode != 0:
+        raise ValueError("could not read the Agent Deck session registry")
+    # Agent Deck 1.16.4 emits text even with --json for an empty profile.
+    if result.stdout.strip() == f"No sessions found in profile '{profile}'.":
+        return []
+    try:
+        sessions = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Agent Deck returned an invalid session registry") from exc
+    if not isinstance(sessions, list):
+        raise TypeError("Agent Deck returned an invalid session registry")
+    return sessions
 
 
 def shlex_join(command: list[str]) -> str:
@@ -191,9 +209,7 @@ def activity_iso(timestamp: float) -> str:
 def recent_repositories(limit: int, profile: str = "default") -> list[dict[str, Any]]:
     records: dict[str, dict[str, Any]] = {}
 
-    sessions = run_json(agent_deck_command(profile, "list", "--json"))
-    if not isinstance(sessions, list):
-        raise TypeError("Agent Deck returned an invalid session registry")
+    sessions = read_agent_deck_sessions(profile)
     for session in sessions:
         path_value = session.get("path")
         if not path_value:
@@ -295,7 +311,7 @@ def resolve_repository(value: str, profile: str = "default") -> dict[str, str | 
 
 def active_session_issues(repository: str, profile: str = "default") -> set[int]:
     numbers: set[int] = set()
-    sessions = run_json(agent_deck_command(profile, "list", "--json"))
+    sessions = read_agent_deck_sessions(profile)
     for session in sessions:
         if session.get("archived", False):
             continue
@@ -394,13 +410,14 @@ def open_blocker_numbers(blocked_by: Any) -> list[int]:
     )
 
 
-def discover_issues(repository: str, profile: str = "default") -> dict[str, Any]:
+def discover_issues(repository: str, profile: str = "default", *, except_batch: str | None = None) -> dict[str, Any]:
     if not re.fullmatch(r"[^/\s]+/[^/\s]+", repository):
         raise ValueError("repository must be OWNER/REPO")
 
     root = find_repository_root(repository, profile)
     checkout = default_branch_worktree(root, repository) if root is not None else None
     session_numbers = active_session_issues(repository, profile)
+    reservations = reserved_issues(repository, except_batch=except_batch)
     worktree_numbers = worktree_issues(root)
     branch_numbers = branch_issues(root)
     pr_numbers = open_pr_issues(repository)
@@ -440,6 +457,8 @@ def discover_issues(repository: str, profile: str = "default") -> dict[str, Any]
             progress_reasons.append("assigned to " + ", ".join(assignees))
         if number in session_numbers:
             progress_reasons.append("active Agent Deck session")
+        if number in reservations:
+            progress_reasons.append("reserved by a durable issue/stack owner")
         if number in worktree_numbers:
             progress_reasons.append("existing worktree")
         if number in branch_numbers:

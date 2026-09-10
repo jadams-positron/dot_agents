@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shlex
@@ -14,12 +15,14 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import state
 from discover import (
     agent_deck_command,
     default_agent_deck_profile,
     discover_issues,
     issue_numbers,
     parse_positive_issue_numbers,
+    read_agent_deck_sessions,
     repository_for_path,
 )
 
@@ -72,6 +75,8 @@ def parse_args() -> argparse.Namespace:
             "each child may have one parent."
         ),
     )
+    parser.add_argument("--batch-file", type=Path, help="Durable manifest outside disposable worktrees (default: user state directory)")
+    parser.add_argument("--resume", action="store_true", help="Reconcile --batch-file before retrying unlaunched owners")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -238,34 +243,19 @@ def worker_prompt(
     base_branch: str,
     name_prefix: str = "work",
     extra_instructions: str = "",
+    owner_state: str | None = None,
 ) -> str:
     issue_refs = ", ".join(f"#{issue}" for issue in issues)
-    root_issue = issues[0]
-    if len(issues) == 1:
-        prompt = f"""Run standalone work-issue as the sole root orchestrator for GitHub issue {repository}#{root_issue} under change-control.
+    mode = "standalone work-issue" if len(issues) == 1 else "the work-gh-issues stack-owner contract; run work-issue only in delegated mode for members"
+    prompt = f"""Run {mode} as the sole root orchestrator for {repository} issues {issue_refs}, ordered bottom-to-tip, under change-control.
 
-Agent Deck has already created an isolated worktree and branch for this issue. Treat the current worktree and branch names as authoritative; Agent Deck may apply its configured branch prefix. Use them for work-issue's isolation step. Do not create another worktree and do not rename the branch.
+Read work-gh-issues sections 5–12 for the canonical owner lifecycle and state protocol, plus change-control/references/upstream-skills.md. Superpowers is consume-only; the owned caller contract governs execution and feedback, not a modified upstream mode. Deliver the smallest correct diff with the original criteria verified. This invocation authorizes necessary in-feature corrections and useful deduplicated follow-up issues, not new product scope, merge, or deploy. Estimated files and LoC are not permission fences. Use two total review-driven repair batches, not two ordinary test fixes. Do not start another root or repeat reviews until no suggestions remain.
 
-This is an independent issue rooted on `{base_branch}`. Use that exact branch for rebases and `gh pr create --base`.
+Agent Deck already created this isolated worktree and root branch. Inspect and retain their actual names, including configured prefixes. Do not nest, rename, or transfer them. The exact default base is `{base_branch}`. For stack children preserve the actual root prefix, replacing the final `{name_prefix}#{issues[0]}` with `{name_prefix}#<child>`. Only this owner may rebase/sync the stack.
 
-Freeze acceptance criteria, risk, expected files, and approximate hand-written diff. Use two total repair rounds and three attempts for one unchanged failure. Produce the smallest correct diff, stop before expansion, and do not invoke fix-all or wiggum. Run focused checks, one risk-appropriate stable-candidate review, and the required full gate once.
+Owner ledger: {owner_state or '$WORK_GH_OWNER_STATE'}. Owner identity: $WORK_GH_OWNER_ID. Launch manifest: $WORK_GH_BATCH_FILE. Initialize the ledger only if absent; otherwise reconcile and resume without resetting decisions or counters. Never edit the launch manifest. Verify report_workflow_outcome is available before beginning feature work, and use its exact owner/session/goal binding for a terminal blocker. A completion sentinel is not proof of review-ready success.
 
-Use the pr-description skill as the sole PR-body authoring path. Create a validated rich body from the exact base-to-head diff and observed evidence, include Example Usage when applicable, and refresh it against the final SHA after CI and Bugbot. Before rewriting a live body, preserve any Bugbot summary appended at the end byte-for-byte and validate against the live snapshot with --existing-body.
-
-Create the PR as a draft, assign it to @me, apply the appropriate labels from issue #{root_issue}, include Closes #{root_issue}, complete the CI and Bugbot workflow, never merge, and never add AI attribution."""
-        return append_extra_instructions(prompt, extra_instructions)
-
-    prompt = f"""Act as the sole root orchestrator and native GitHub stack owner for {repository} issues {issue_refs}, ordered bottom-to-tip, under change-control.
-
-Agent Deck has created one isolated worktree and the root branch for issue #{root_issue}. Treat the current worktree and branch as authoritative; Agent Deck may have added a prefix. Do not create another worktree, launch per-issue workers, or let another checkout hold a stack branch.
-
-Read and follow the work-gh-issues stack-owner contract and work-issue stack-member mode. Initialize the current root branch with `gh stack init --base {base_branch} <actual-root-branch>`. Process issues in this exact order: {issue_refs}. For each child, derive its branch by preserving the root branch's prefix and replacing the final `{name_prefix}#{root_issue}` with `{name_prefix}#<child>`, then create it with `gh stack add <child-branch>`.
-
-For each issue, run work-issue only in delegated mode: implement, run focused checks, leave one signed commit, and return without dispatch, broad review, push, PR, or CI. Keep only that issue's user-visible changelog entry in its commit.
-
-After all branches pass their local gates, run `gh stack rebase` before freezing the aggregate review target, then rerun every affected local gate. Run one risk-appropriate aggregate review across the frozen stack and repair only blocking or coupled findings within two total repair rounds. Its mandatory abstraction-review leg must satisfy `abstraction-review/references/independent-dispatch.md` (`independent-abstraction-review/v1`) with the `stack` profile: freeze the default-base ref and tip, merge-base, stack-tip and tree OIDs, ordered stack OIDs and bounds, and exact binary diff plus SHA-256. Give the fresh reviewer only raw intent and acceptance criteria for every issue, repository instructions, and the frozen target. Stop on any canonical contract failure, retain the complete evidence packet, and repeat with another fresh reviewer after repairs until clean. Use pr-description as the sole PR-body authoring path to write and validate a separate body file for each future PR from only its immediate base-to-head diff; never reuse a cumulative body. No amend, rebase, sync, or content-changing command may occur between the final review snapshot and `gh stack submit --auto`; if one is required, discard the review and bodies, perform it, reverify, and rerun with a different fresh abstraction reviewer. Submit without another rebase, apply the prepared bodies, and correct every PR's title, assignee, labels, `Closes #<issue>`, and immediate base. Record the ordered branches, PRs, bases, worktree, owner, and expected remote SHAs.
-
-Handle CI and Bugbot bottom-to-tip. Amend fixes into the owning issue commit, run `gh stack rebase --upstack`, and use `gh stack sync` to atomically update the chain. Every content amendment or cascade rebase invalidates the aggregate abstraction review. After the stack stabilizes and before any PR becomes ready, rerun the same canonical `stack`-profile gate with a different fresh abstraction reviewer against the new frozen target. Rerun only affected checks and review concerns within the same repair budget. Recheck every affected descendant on its new SHA. Refresh each affected PR through pr-description against its final immediate base and head. Before rewriting a live body, preserve any Bugbot summary appended at the end byte-for-byte and validate against the live snapshot with --existing-body. Never repair or push one parent branch in isolation, never merge, and never add AI attribution."""
+Use pr-description as the sole PR-body authoring path. Preserve current-target canonical review evidence, latest-SHA descendant checks, explicit remote leases, signed commits when required, issue hygiene, and a trailing Bugbot summary. Never merge or add AI attribution to authored commits/PR bodies."""
     return append_extra_instructions(prompt, extra_instructions)
 
 
@@ -286,8 +276,14 @@ def launch_command(
     base_branch: str,
     name_prefix: str,
     extra_instructions: str,
+    owner_id: str | None = None,
+    owner_state: str | None = None,
+    batch_file: str | None = None,
 ) -> list[str]:
     name = f"{name_prefix}#{issues[0]}"
+    runtime = "pi --no-approve"
+    if owner_id:
+        runtime = "pi"
     command = agent_deck_command(
         profile,
         "launch",
@@ -298,7 +294,7 @@ def launch_command(
         "--group",
         group,
         "--cmd",
-        "pi --no-approve",
+        runtime,
         "--worktree",
         name,
         "--new-branch",
@@ -312,30 +308,19 @@ def launch_command(
             base_branch,
             name_prefix,
             extra_instructions,
+            owner_state,
         ),
         "--json",
     )
+    if owner_id:
+        # Keep Pi as the native tool; an env-prefixed --cmd would identify it as a shell.
+        contract = hashlib.sha256(command[command.index("--message") + 1].encode()).hexdigest()
+        # {command} includes Agent Deck's shell preflight, not only the Pi executable.
+        wrapper = shlex.join(["export", f"WORK_GH_OWNER_ID={owner_id}", f"WORK_GH_OWNER_STATE={owner_state}", f"WORK_GH_BATCH_FILE={batch_file}", f"WORK_GH_LAUNCH_CONTRACT={contract}"])
+        command.extend(["--wrapper", f"{wrapper}; {{command}} --no-approve"])
     if parent is not None:
         command.extend(["--parent", parent])
     return command
-
-
-def read_agent_deck_sessions(profile: str) -> list[dict[str, Any]]:
-    result = subprocess.run(
-        agent_deck_command(profile, "list", "--json"),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise ValueError("could not read the Agent Deck session registry")
-    try:
-        sessions = json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        raise ValueError("Agent Deck returned an invalid session registry") from exc
-    if not isinstance(sessions, list):
-        raise TypeError("Agent Deck returned an invalid session registry")
-    return sessions
 
 
 def check_collisions(
@@ -372,6 +357,8 @@ def check_collisions(
             capture_output=True,
             text=True,
         )
+        if branches.returncode != 0:
+            raise ValueError("could not inspect branch refs; absence is not established")
         if issue in issue_numbers(branches.stdout):
             collisions.append(f"issue branch for #{issue}")
 
@@ -381,6 +368,8 @@ def check_collisions(
             capture_output=True,
             text=True,
         )
+        if worktrees.returncode != 0:
+            raise ValueError("could not inspect worktrees; absence is not established")
         if issue in issue_numbers(worktrees.stdout):
             collisions.append(f"worktree for #{issue}")
 
@@ -529,7 +518,7 @@ def normalize_launch_result(
         payload.get("parent_id")
         or details.get("parent_id")
         or details.get("parent_session_id")
-    )
+    ) or None
     if expected_parent is not None and parent_id != expected_parent:
         raise ValueError(
             f"launched session {session_id} has parent {parent_id!r}; "
@@ -581,6 +570,108 @@ def new_batch_id(repository: str) -> str:
     return f"{slug}-{uuid.uuid4().hex[:12]}"
 
 
+def intent_command(manifest, intent, path):
+    return launch_command(
+        Path(manifest["repo_path"]), manifest["repository"], manifest["profile"],
+        manifest["parent_id"], manifest["group"], intent["issues"],
+        manifest["default_branch"], manifest["name_prefix"], manifest["extra_instructions"],
+        intent["id"], intent["owner_state"], str(path),
+    )
+
+
+def reconcile_owner(manifest, intent, command):
+    profile = manifest["profile"]
+    wrapper = command[command.index("--wrapper") + 1]
+    matches = []
+    for session in read_agent_deck_sessions(profile):
+        if session.get("archived", False):
+            continue
+        details = session_details(profile, session["id"])
+        if details.get("wrapper") == wrapper or session["id"] == intent.get("session_id"):
+            matches.append((session, details))
+    if len(matches) > 1:
+        raise ValueError("ambiguous launch identity: multiple matching Agent Deck owners")
+    if not matches:
+        if intent.get("session_id"):
+            raise ValueError("recorded owner is missing or archived; do not create a replacement")
+        return None
+    session, details = matches[0]
+    found = repository_for_path(Path(details.get("path", "")))
+    expected_repo = repository_for_path(Path(manifest["repo_path"]))
+    if (
+        details.get("wrapper") != wrapper
+        or details.get("id") != session["id"]
+        or details.get("tool") != "pi"
+        or details.get("command") != command[command.index("--cmd") + 1]
+        or session.get("profile") != profile
+        or details.get("profile") not in (None, "", profile)
+        or details.get("parent_session_id", details.get("parent_id")) not in ((None, "") if manifest["parent_id"] is None else (manifest["parent_id"],))
+        or found is None or expected_repo is None
+        or found[0].lower() != manifest["repository"].lower()
+        or found[1] != expected_repo[1]
+    ):
+        raise ValueError("launch owner metadata does not prove repository/profile/parent/runtime identity")
+    actual = normalize_launch_result({"session_id": details["id"]}, profile, manifest["parent_id"])
+    previous = intent.get("actual")
+    if previous and any(actual[key] != previous[key] for key in ("worktree", "branch")):
+        raise ValueError("recorded owner worktree/branch identity changed; do not silently adopt it")
+    actual.update(issues=intent["issues"], owner=intent["owner"], owner_id=intent["id"], owner_state=intent["owner_state"])
+    return actual
+
+
+def run_manifest(manifest, path):
+    state.validate(manifest)
+    path = Path(path).expanduser().resolve()
+    reservation_lock = state.state_directory() / "locks" / hashlib.sha256(manifest["repository"].lower().encode()).hexdigest()
+    with state.locked(reservation_lock), state.locked(path):
+        if path.exists():
+            persisted = state.load(path, "batch")
+            state.require(persisted["batch_id"] == manifest["batch_id"], "batch path already belongs to another launch")
+            manifest = persisted
+        conflicts = state.reserved_issues(manifest["repository"], except_batch=manifest["batch_id"]) & set(manifest["selected_issues"])
+        state.require(not conflicts, f"issues reserved by another batch: {sorted(conflicts)}")
+        state.save(path, manifest)
+        state.register_batch(path, manifest)
+        manifest["owners"], manifest["failures"] = [], []
+        repo = Path(manifest["repo_path"])
+        for intent in manifest["launch_intents"]:
+            command = intent_command(manifest, intent, path)
+            try:
+                actual = reconcile_owner(manifest, intent, command)
+                if actual is None:
+                    discovery = discover_issues(manifest["repository"], manifest["profile"], except_batch=manifest["batch_id"])
+                    dependencies = {int(child): parent for child, parent in manifest["dependencies"].items()}
+                    validate_selected_issues(discovery, intent["issues"], dependencies)
+                    check_collisions(repo, manifest["repository"], manifest["profile"], intent["issues"], manifest["name_prefix"])
+                    intent["status"] = "launching"
+                    state.save(path, manifest)
+                    result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=180)
+                    if result.returncode != 0:
+                        raise ValueError(launch_failure_detail(result, repo))
+                    payload = parse_json_object(result.stdout, "agent-deck launch")
+                    session_id = payload.get("session_id") or payload.get("id")
+                    state.require(text_identity(session_id), "agent-deck launch did not return a session ID")
+                    intent["session_id"] = session_id
+                    state.save(path, manifest)
+                    actual = reconcile_owner(manifest, intent, command)
+                    state.require(actual is not None, "launch receipt could not be reconciled")
+                intent.update(status="launched", session_id=actual["session_id"], actual=actual)
+                manifest["owners"].append(actual)
+            except (OSError, subprocess.SubprocessError, TypeError, ValueError) as exc:
+                intent["status"] = "uncertain"
+                manifest["failures"].append({"issues": intent["issues"], "owner": intent["owner"], "owner_id": intent["id"], "error": str(exc)})
+            state.save(path, manifest)
+        manifest["success"] = not manifest["failures"]
+        manifest["batch_file"] = str(path)
+        manifest["summary"] = f"Reconciled {len(manifest['owners'])} owner session(s) for {len(manifest['selected_issues'])} issue(s) in group {manifest['group']}. Launch success is not feature success."
+        state.save(path, manifest)
+        return manifest
+
+
+def text_identity(value):
+    return isinstance(value, str) and bool(value.strip())
+
+
 def main() -> int:
     args = parse_args()
     if shutil.which("git") is None:
@@ -593,6 +684,18 @@ def main() -> int:
         return command_error("gh is not installed or not on PATH", args.json)
 
     try:
+        if args.resume:
+            if args.batch_file is None or args.dry_run:
+                raise ValueError("--resume requires --batch-file and cannot be combined with --dry-run")
+            manifest = state.load(args.batch_file, "batch")
+            repo = validate_repo(args.repo)
+            state.require(str(repo) == manifest["repo_path"] and args.profile == manifest["profile"], "resume repository/profile does not match the recorded batch")
+            state.require(args.parent is None or args.parent == manifest["parent_id"], "resume parent does not match the recorded batch")
+            state.require(not args.issues and not args.depends_on and args.instructions_file is None, "resume the frozen selection and instructions, not a changed launch set")
+            validate_default_branch_checkout(repo, manifest["default_branch"])
+            manifest = run_manifest(manifest, args.batch_file)
+            print(json.dumps(manifest, indent=2) if args.json else manifest["summary"])
+            return 0 if manifest["success"] else 1
         issues = collect_issues(args.issues)
         repo = validate_repo(args.repo)
         found = repository_for_path(repo)
@@ -625,13 +728,19 @@ def main() -> int:
             issues,
             args.name_prefix,
         )
-    except (TypeError, ValueError) as exc:
+    except (OSError, TypeError, ValueError) as exc:
         return command_error(str(exc), args.json)
 
     current = current_agent_deck_session(args.profile)
     parent = args.parent or (current.get("id") if current else None)
+    batch_id = new_batch_id(repository)
+    batch_file = (args.batch_file or state.state_directory() / "manifests" / f"{batch_id}.json").expanduser().resolve()
+    if batch_file.is_relative_to(repo):
+        return command_error("batch state must live outside disposable repository worktrees", args.json)
     manifest: dict[str, Any] = {
-        "batch_id": new_batch_id(repository),
+        "version": state.VERSION,
+        "kind": "batch",
+        "batch_id": batch_id,
         "repository": repository,
         "repo_path": str(repo),
         "profile": args.profile,
@@ -639,72 +748,32 @@ def main() -> int:
         "default_branch": default_branch,
         "parent_id": parent,
         "dry_run": args.dry_run,
+        "selected_issues": issues,
+        "dependencies": {str(child): parent for child, parent in dependencies.items()},
+        "name_prefix": args.name_prefix,
+        "extra_instructions": extra_instructions,
+        "launch_intents": [],
         "owners": [],
         "failures": [],
     }
-
     for chain in chains:
-        root_issue = chain[0]
-        command = launch_command(
-            repo,
-            repository,
-            args.profile,
-            parent,
-            group,
-            chain,
-            default_branch,
-            args.name_prefix,
-            extra_instructions,
-        )
-        issue_refs = " -> ".join(f"#{issue}" for issue in chain)
-        owner_name = f"{args.name_prefix}#{root_issue}"
-        if args.dry_run:
-            manifest["owners"].append(
-                {
-                    "issues": chain,
-                    "owner": owner_name,
-                    "status": "planned",
-                    "command": command,
-                }
-            )
+        owner_id = uuid.uuid4().hex
+        manifest["launch_intents"].append({
+            "id": owner_id, "issues": chain, "owner": f"{args.name_prefix}#{chain[0]}",
+            "owner_state": str(batch_file.parent / f"{batch_id}.owners" / f"{owner_id}.json"),
+            "status": "planned",
+        })
+    if args.dry_run:
+        for intent in manifest["launch_intents"]:
+            command = intent_command(manifest, intent, batch_file)
+            manifest["owners"].append({**intent, "command": command})
             if not args.json:
                 print(shlex.join(command))
-            continue
-
-        emit_status(f"Launching {issue_refs} as {owner_name}...", args.json)
-        result = subprocess.run(
-            command,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            manifest["failures"].append(
-                {
-                    "issues": chain,
-                    "owner": owner_name,
-                    "error": launch_failure_detail(result, repo),
-                }
-            )
-            continue
-        payload: dict[str, Any] = {}
+    else:
         try:
-            payload = parse_json_object(result.stdout, "agent-deck launch")
-            owner = normalize_launch_result(payload, args.profile, parent)
-            owner.update({"issues": chain, "owner": owner_name})
-            manifest["owners"].append(owner)
-            kind = "stack" if len(chain) > 1 else "issue"
-            emit_status(
-                f"{kind.title()} {issue_refs}: owner {owner_name} "
-                f"({owner['branch']}) -> rooted on {default_branch}",
-                args.json,
-            )
-        except (TypeError, ValueError) as exc:
-            failure = {"issues": chain, "owner": owner_name, "error": str(exc)}
-            session_id = payload.get("session_id") or payload.get("id")
-            if isinstance(session_id, str) and session_id:
-                failure.update({"session_id": session_id, "launched": True})
-            manifest["failures"].append(failure)
+            manifest = run_manifest(manifest, batch_file)
+        except (OSError, TypeError, ValueError) as exc:
+            return command_error(str(exc), args.json)
 
     action = "Prepared" if args.dry_run else "Launched"
     manifest["success"] = not manifest["failures"]

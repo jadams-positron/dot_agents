@@ -39,6 +39,29 @@ from launch import (
 
 
 class DiscoveryTests(unittest.TestCase):
+    def test_wrapper_exports_binding_across_native_compound_command(self) -> None:
+        import shlex
+        import subprocess
+        import sys
+        command = launch_command(Path("/tmp/repo"), "owner/repo", "work", None, "repo", [42], "main", "work", "", "owner-42", "/tmp/owner's ledger.json", "/tmp/batch.json")
+        wrapper = command[command.index("--wrapper") + 1]
+        script = "import json, os, sys; print(json.dumps([os.environ.get('WORK_GH_OWNER_ID'), os.environ.get('WORK_GH_OWNER_STATE'), os.environ.get('NATIVE_PREFLIGHT'), sys.argv[1:]]))"
+        native = "export NATIVE_PREFLIGHT=1 && " + shlex.join([sys.executable, "-c", script])
+        result = subprocess.run(["bash", "-c", wrapper.replace("{command}", native)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), ["owner-42", "/tmp/owner's ledger.json", "1", ["--no-approve"]])
+        self.assertEqual(command[command.index("--cmd") + 1], "pi")
+
+    def test_native_empty_profile_response_is_normalized_for_all_consumers(self) -> None:
+        import discover
+        import launch
+        for read_sessions in (discover.read_agent_deck_sessions, launch.read_agent_deck_sessions):
+            with patch("subprocess.run", return_value=CompletedProcess([], 0, "No sessions found in profile 'fresh'.\n", "")):
+                self.assertEqual(read_sessions("fresh"), [])
+            for result in [CompletedProcess([], 1, "No sessions found in profile 'fresh'.\n", "failed"), CompletedProcess([], 0, "No sessions found in profile 'other'.\n", ""), CompletedProcess([], 0, "", "")]:
+                with patch("subprocess.run", return_value=result), self.assertRaises((ValueError, TypeError)):
+                    read_sessions("fresh")
+
     def test_parse_repository_supports_ssh_alias_and_https(self) -> None:
         self.assertEqual(
             parse_repository("git@github.com-personal:owner/repo.git"),
@@ -115,7 +138,7 @@ class DiscoveryTests(unittest.TestCase):
     def test_worker_prompt_uses_one_bounded_root(self) -> None:
         prompt = worker_prompt("owner/repo", [42], "main")
         self.assertIn("sole root orchestrator", prompt)
-        self.assertIn("two total repair rounds", prompt)
+        self.assertIn("two total review-driven repair batches", prompt)
         self.assertIn("smallest correct diff", prompt)
         self.assertNotIn("repeat with another fresh", prompt)
 
@@ -123,8 +146,8 @@ class DiscoveryTests(unittest.TestCase):
         prompt = worker_prompt("owner/repo", [42, 43], "main")
         self.assertIn("sole root orchestrator", prompt)
         self.assertIn("work-issue only in delegated mode", prompt)
-        self.assertIn("two total repair rounds", prompt)
-        self.assertIn("gh stack sync", prompt)
+        self.assertIn("two total review-driven repair batches", prompt)
+        self.assertIn("Only this owner may rebase/sync the stack", prompt)
         self.assertNotIn("fix-all workflow", prompt)
 
     def test_worker_prompt_supports_custom_names_and_instructions(self) -> None:

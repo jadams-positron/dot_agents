@@ -1,14 +1,10 @@
 # Work GitHub Issues Heartbeat
 
-1. Drain `agent-deck inbox drain self --json` and process every completion once.
-2. Run `agent-deck session children --json` and compare stable child session IDs
-   with owners across every entry in `state.json.batches`.
-3. Inspect output only for children that became waiting, errored, or complete.
-4. Auto-respond only when `POLICY.md` makes the answer deterministic; never send
-   to a running child.
-5. Update only the affected batch in `state.json` and append the event and
-   action to `task-log.md`. Escalate parent-linked children that have no batch.
-6. Do not discover or launch new issues from a heartbeat.
+1. Drain `agent-deck inbox drain self --json`; reconcile each event ID once.
+2. Compare parent-linked children with stable owner IDs in the recorded batch manifests. Unknown ownership requires evidence, not a guessed assignment.
+3. Inspect output/owner state only for newly waiting, errored, idle, or completed children. A completion sentinel or successful wait does not prove feature success.
+4. Auto-answer only a nonterminal waiting owner when `POLICY.md` determines the answer. Never send to a running owner, reopen a settled claim, reset counters, or nudge `stopped_blocked` work.
+5. Record the affected outcome/event and evidence pointer once in the supervision summary and `task-log.md`. Do not edit worker ledgers or branches.
+6. Do not discover/launch new issues or replacement workers during a heartbeat.
 
-Reply with `[STATUS]` when the fleet needs no decision. Emit one concise `NEED:`
-line per decision or blocker that requires the user.
+Use `[STATUS]` when no new decision is needed. Emit one concise blocker/decision report per terminal event; repeated notifications do not produce repeated approval requests. Distinguish verified `review_ready`, honest `stopped_blocked`, and unverified runtime notifications.
