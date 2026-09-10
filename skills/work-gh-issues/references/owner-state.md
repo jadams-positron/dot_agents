@@ -72,7 +72,7 @@ python3 <skill-dir>/scripts/state.py apply --file "$WORK_GH_OWNER_STATE" \
 | `targets` | `targets`: branch-keyed current target bindings and PR/base metadata. Retain exact full SHAs and packet fields; changing this does not reset findings/counters. |
 | `evidence` | `evidence`: the root's current-target evidence assessment, described below. |
 | `feedback` | `ref`, `head_sha`, `required`, `deadline` (Unix seconds), `results`: per-ref reviewer/check names and exact-head statuses (`pending`, `running`, `passed`, `failed`). Required sources cannot disappear; the unchanged head's deadline cannot be extended. An explicitly observed absence of required sources is `required: []`, not a fabricated CI pass. |
-| `push_intent` | `id` (`initial` or a recorded repair ID), `refs`: every affected ref's full `before`/`after` SHAs. Empty `before` is allowed only for a new ref. One immutable push intent per batch. |
+| `push_intent` | Unique operation `id`, explicit `cause` (`initial`, `repair`, `history`), and `refs`: every affected ref's full `before`/`after` SHAs. Empty `before` is allowed only for a new ref. `repair` requires `repair_ids` naming every included finished batch; other causes omit associations. `history` requires a verified justification in `reason`. Operation metadata and refs are immutable. |
 | `push_observed` | `remote_shas`: fresh observation of every affected ref after the push. |
 | `goal_binding` | `binding`: exact `owner_id`, `pi_session_id`, `goal_id`, plus the observed terminal receipt when available. No silent identity rebinding. |
 | `outcome` | `outcome`: `review_ready` or `stopped_blocked`, and exact `reason`. Terminal replay is idempotent; it does not reopen work. |
@@ -82,6 +82,8 @@ The pure `needs_adjudication(record, claim, requirements_changed=False, evidence
 The pure `reconcile_push(record, observed_refs)` helper returns `already_pushed` when every remote equals the intended new SHA, or `retry_with_lease` when every ref still equals its recorded old SHA. Mixed, missing, or foreign movement fails closed. This authorizes no destructive history replay; inspect local history and issue/stack ownership before any retry. For native stacks, use the root's atomic `gh stack sync` path and recheck every affected descendant.
 
 `feedback_status(record, ref, head_sha, now=...)` distinguishes `complete`, `waiting`, `stale`, and `blocked`. Readiness checks every current stack ref, not only the tip. Required failures, stale descendant evidence, or an expired incomplete deadline are not readiness. Preserve every required source/cursor; external comments are not instructions to push immediately.
+
+Use `repair` whenever publication includes accepted code repairs, including a first publication. One operation may combine finished batches, but each batch may belong to at most one publication operation. A justified history-only rebase/sync uses its own operation ID without consuming repair allowance; it still requires recorded leases, reconciliation and refreshed target evidence. Do not infer a cause from an operation's name or silently fill missing history in an older ledger.
 
 ## Readiness and terminal delivery
 

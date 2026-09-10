@@ -107,6 +107,30 @@ class JournalTests(unittest.TestCase):
             launch.run_manifest(launch.state.load(self.path), self.path)
         self.assertIn("metadata", launch.state.load(self.path)["failures"][0]["error"])
 
+    def test_recorded_session_cannot_be_replaced_by_matching_wrapper(self):
+        launch.run_manifest(self.manifest, self.path)
+        saved = launch.state.load(self.path)
+        sessions = dict(self.sessions)
+        recorded = saved["launch_intents"][0]["session_id"]
+        for archived in (False, True):
+            for has_actual in (False, True):
+                with self.subTest(archived=archived, has_actual=has_actual):
+                    original = json.loads(json.dumps(saved))
+                    if not has_actual:
+                        original["launch_intents"][0].pop("actual")
+                    launch.state.save(self.path, original)
+                    self.sessions = dict(sessions)
+                    if archived:
+                        self.sessions[recorded] = {**sessions[recorded], "archived": True}
+                    else:
+                        self.sessions.pop(recorded)
+                    self.sessions["replacement"] = {**sessions[recorded], "id": "replacement"}
+                    result = launch.run_manifest(original, self.path)
+                    self.assertTrue(result["failures"])
+                    self.assertIn("recorded owner", result["failures"][0]["error"])
+                    self.assertEqual(result["launch_intents"][0]["session_id"], recorded)
+                    self.assertEqual(len(self.launches), 2)
+
     def test_partial_launch_is_persisted_and_resume_does_not_relaunch_stack(self):
         self.fail.add("work#99")
         launch.run_manifest(self.manifest, self.path)

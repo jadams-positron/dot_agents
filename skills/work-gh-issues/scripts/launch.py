@@ -596,6 +596,8 @@ def reconcile_owner(manifest, intent, command):
             raise ValueError("recorded owner is missing or archived; do not create a replacement")
         return None
     session, details = matches[0]
+    if intent.get("session_id") and session["id"] != intent["session_id"]:
+        raise ValueError("recorded owner session identity changed; explicit adoption is required")
     found = repository_for_path(Path(details.get("path", "")))
     expected_repo = repository_for_path(Path(manifest["repo_path"]))
     if (

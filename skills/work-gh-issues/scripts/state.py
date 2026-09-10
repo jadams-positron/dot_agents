@@ -96,6 +96,20 @@ def validate_feedback(cursor):
         require(isinstance(result.get("head_sha"), str) and SHA.fullmatch(result["head_sha"]), "feedback result requires exact head")
 
 
+def validate_publication(publication, repairs):
+    require(isinstance(publication, dict) and publication.get("cause") in {"initial", "repair", "history"}, "invalid publication cause")
+    repair_ids = publication.get("repair_ids")
+    require(strings(repair_ids, nonempty=False) and len(repair_ids) == len(set(repair_ids)), "invalid publication repair associations")
+    require((publication["cause"] == "repair") == bool(repair_ids), "only repair publications require accepted repair associations")
+    require(all(repairs.get(identity, {}).get("status") == "finished" for identity in repair_ids), "publication requires finished accepted repairs")
+    require(isinstance(publication.get("reason"), str) and (publication["cause"] != "history" or text(publication["reason"])), "history publication requires a justification")
+    refs = publication.get("refs")
+    require(isinstance(refs, dict) and refs, "publication requires exact refs")
+    for branch, binding in refs.items():
+        require(text(branch) and isinstance(binding, dict) and all(isinstance(binding.get(key), str) for key in ("before", "after")), "publication requires explicit before/after refs")
+        require(SHA.fullmatch(binding["after"]) and (binding["before"] == "" or SHA.fullmatch(binding["before"])), "push requires full before/after SHAs (empty before only for new refs)")
+
+
 def validate(record):
     require(isinstance(record, dict) and record.get("version") == VERSION, "incompatible state version; preserve the file")
     require(record.get("kind") in {"batch", "owner", "batch_pointer"}, "invalid state kind")
@@ -131,6 +145,16 @@ def validate(record):
     for key in ("repair_batches_used", "unchanged_attempts"):
         require(type(record.get(key)) is int and record[key] >= 0, f"invalid {key}")
     require(record["repair_batches_used"] == len(record["repairs"]) <= 2, "invalid repair accounting")
+    published_repairs, pending = [], []
+    for identity, publication in record["pushes"].items():
+        validate_publication(publication, record["repairs"])
+        require(text(identity) and publication.get("status") in {"pending", "observed"}, "invalid publication identity/status")
+        published_repairs.extend(publication["repair_ids"])
+        if publication["status"] == "pending":
+            pending.append(identity)
+    require(len(published_repairs) == len(set(published_repairs)), "one publication operation per accepted repair batch")
+    require(sum(item["cause"] == "initial" for item in record["pushes"].values()) <= 1, "only one initial publication operation")
+    require(pending == ([] if record["pending_push"] is None else [record["pending_push"]]), "invalid pending publication")
     require(isinstance(record.get("finding_history"), list), "invalid finding history")
     for identity, finding in record["findings"].items():
         validate_finding(finding)
@@ -251,7 +275,7 @@ def require_ready(record):
     require(all(strings(evidence.get("criteria", {}).get(item)) for item in record["feature_contract"]["criteria"]), "readiness requires evidence for every original criterion")
     review = evidence.get("review", {})
     contract = record["feature_contract"]
-    review_required = not (contract.get("risk") == "low" and contract.get("review_required") is False)
+    review_required = contract.get("canonical_abstraction_required") or not (contract.get("risk") == "low" and contract.get("review_required") is False)
     if review_required or review:
         require(review.get("complete") is True and strings(review.get("refs")), "readiness requires complete review evidence")
         focused = contract.get("risk") in {"low", "medium"} and contract.get("review_kind") == "focused" and not contract.get("canonical_abstraction_required")
@@ -289,9 +313,11 @@ def apply(record, event, owner_id, session_id):
                 require(previous["id"] not in active.get("finding_ids", []), "active accepted claim set is frozen; defer the changed claim until this batch finishes")
                 require(text(event.get("reason")), "reopening requires the changed premise or evidence")
                 result["finding_history"].append({"finding": previous, "reason": event["reason"]})
+                for key in ("resolutionEvidence", "investigationEvidence"):
+                    item.pop(key, None)
             else:
                 require(all(previous[key] == item[key] for key in ("validity", "necessity", "disposition")), "settled disposition needs reopening evidence")
-                item = {**previous, "line": item["line"], "evidenceRefs": list(dict.fromkeys(previous["evidenceRefs"] + item["evidenceRefs"]))}
+                item = {**previous, "file": item["file"], "line": item["line"], "evidenceRefs": list(dict.fromkeys(previous["evidenceRefs"] + item["evidenceRefs"]))}
             item["id"] = previous["id"]
             item["sourceIds"] = list(dict.fromkeys(previous["sourceIds"] + event["finding"]["sourceIds"]))
         result["findings"][item["id"]] = item
@@ -362,16 +388,15 @@ def apply(record, event, owner_id, session_id):
         result["feedback_cursor"][event["ref"]] = {key: event[key] for key in ("head_sha", "required", "deadline", "results")}
         result["phase"] = "feedback"
     elif kind == "push_intent":
-        identity, refs = event["id"], event["refs"]
-        require(text(identity) and isinstance(refs, dict) and refs, "push identity and exact refs are required")
-        for branch, binding in refs.items():
-            require(text(branch) and isinstance(binding, dict) and SHA.fullmatch(binding.get("after", "")) and (binding.get("before") == "" or SHA.fullmatch(binding.get("before", ""))), "push requires full before/after SHAs (empty before only for new refs)")
+        identity = event["id"]
+        require(text(identity), "push operation identity is required")
+        publication = {"cause": event.get("cause"), "repair_ids": event.get("repair_ids", []), "reason": event.get("reason", ""), "refs": event["refs"]}
+        validate_publication(publication, result["repairs"])
         if identity in result["pushes"]:
-            require(result["pushes"][identity]["refs"] == refs, "push intent cannot change after dispatch")
+            require(all(result["pushes"][identity][key] == value for key, value in publication.items()), "push intent cannot change after dispatch")
             return result
         require(result["pending_push"] is None, "reconcile the pending push first")
-        require(identity == "initial" or identity in result["repairs"], "one push intent per accepted repair batch")
-        result["pushes"][identity] = {"refs": refs, "status": "pending"}
+        result["pushes"][identity] = {**copy.deepcopy(publication), "status": "pending"}
         result["pending_push"] = identity
     elif kind == "push_observed":
         require(reconcile_push(result, event["remote_shas"]) == "already_pushed", "push not observed; retry only with the recorded lease")

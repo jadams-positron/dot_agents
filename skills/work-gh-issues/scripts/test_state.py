@@ -125,6 +125,37 @@ class StateTests(unittest.TestCase):
         self.assertEqual(self.owner["findings"]["sanitizer"]["disposition"], "no_change")
         self.assertIn("fresh-packet.json", self.owner["findings"]["sanitizer"]["evidenceRefs"])
 
+    def test_reopening_copied_ledger_records_invalidates_premise_evidence(self):
+        self.apply(type="finding", finding=finding())
+        self.apply(type="resolve", id="sanitizer", evidence=["previously passed"])
+        previous = copy.deepcopy(self.owner["findings"]["sanitizer"])
+        self.apply(type="finding", finding={**previous, "evidenceRefs": ["new failing reproducer"]}, evidence_changed=True, reason="The failure returned")
+        self.assertNotIn("resolutionEvidence", self.owner["findings"]["sanitizer"])
+        self.assertEqual(self.owner["finding_history"][-1]["finding"], previous)
+        self.apply(type="begin_repair", id="repair-1", finding_ids=["sanitizer"])
+        self.apply(type="resolve", id="sanitizer", evidence=["new reproducer passes"])
+        self.apply(type="finish_repair", id="repair-1")
+        self.apply(type="finding", finding=finding("uncertain", validity="uncertain", necessity="uncertain", disposition="needs_evidence"))
+        self.apply(type="investigate", id="uncertain", evidence=["old investigation"])
+        previous = copy.deepcopy(self.owner["findings"]["uncertain"])
+        self.apply(type="finding", finding={**previous, "evidenceRefs": ["changed premise"]}, requirements_changed=True, reason="A required premise changed")
+        self.assertNotIn("investigationEvidence", self.owner["findings"]["uncertain"])
+        self.assertEqual(self.owner["finding_history"][-1]["finding"], previous)
+        self.apply(type="investigate", id="uncertain", evidence=["fresh investigation"])
+        with self.assertRaisesRegex(ValueError, "investigat"):
+            self.apply(type="investigate", id="uncertain", evidence=["repeat"])
+
+    def test_relocation_updates_current_and_repair_anchors_without_reopening(self):
+        self.apply(type="finding", finding=finding(file="old/path.go", line=10))
+        moved = finding(file="new/path.go", line=20)
+        self.assertFalse(state.needs_adjudication(self.owner, moved))
+        self.apply(type="finding", finding=moved)
+        self.assertEqual(self.owner["finding_history"], [])
+        self.assertEqual(self.owner["repair_batches_used"], 0)
+        self.apply(type="begin_repair", id="repair-1", finding_ids=["sanitizer"])
+        for item in [self.owner["findings"]["sanitizer"], self.owner["repairs"]["repair-1"]["findings"]["sanitizer"]]:
+            self.assertEqual((item["file"], item["line"]), ("new/path.go", 20))
+
     def test_new_evidence_or_changed_premise_reopens_without_erasing_history(self):
         original = finding(disposition="no_change", validity="invalid", necessity="none")
         self.apply(type="finding", finding=original)
@@ -189,7 +220,7 @@ class StateTests(unittest.TestCase):
 
     def test_lost_push_response_is_reconciled_with_all_remote_shas(self):
         refs = {"feature/work#42": {"before": "a" * 40, "after": "b" * 40}, "feature/work#43": {"before": "c" * 40, "after": "d" * 40}}
-        self.apply(type="push_intent", id="initial", refs=refs)
+        self.apply(type="push_intent", id="initial", cause="initial", refs=refs)
         self.assertEqual(state.reconcile_push(self.owner, {key: value["before"] for key, value in refs.items()}), "retry_with_lease")
         self.assertEqual(state.reconcile_push(self.owner, {key: value["after"] for key, value in refs.items()}), "already_pushed")
         with self.assertRaisesRegex(ValueError, "remote|partial"):
@@ -198,6 +229,60 @@ class StateTests(unittest.TestCase):
             state.reconcile_push(self.owner, {"feature/work#42": "f" * 40, "feature/work#43": "d" * 40})
         self.apply(type="push_observed", remote_shas={key: value["after"] for key, value in refs.items()})
         self.assertEqual(self.owner["pushes"]["initial"]["status"], "observed")
+
+    def test_history_publication_has_independent_immutable_identity(self):
+        first = {"branch": {"before": "a" * 40, "after": "b" * 40}}
+        self.apply(type="push_intent", id="publication-1", cause="initial", refs=first)
+        first["branch"]["after"] = "f" * 40
+        self.assertEqual(self.owner["pushes"]["publication-1"]["refs"]["branch"]["after"], "b" * 40)
+        first["branch"]["after"] = "b" * 40
+        self.apply(type="push_observed", remote_shas={"branch": "b" * 40})
+        event = {"type": "push_intent", "id": "base-sync", "cause": "history", "reason": "Base advanced; the feature patch is unchanged", "refs": {"branch": {"before": "b" * 40, "after": "c" * 40}}}
+        self.apply(**event)
+        state.save(self.path, self.owner)
+        self.owner = state.load(self.path)
+        self.apply(**event)
+        self.assertEqual(self.owner["repair_batches_used"], 0)
+        self.assertEqual(state.reconcile_push(self.owner, {"branch": "b" * 40}), "retry_with_lease")
+        for changed in [{"cause": "initial"}, {"reason": "different operation"}, {"refs": first}]:
+            with self.assertRaisesRegex(ValueError, "cannot change"):
+                self.apply(**(event | changed))
+        with self.assertRaisesRegex(ValueError, "pending"):
+            self.apply(**(event | {"id": "another-sync"}))
+        self.apply(type="push_observed", remote_shas={"branch": "c" * 40})
+        self.assertEqual(self.owner["pushes"]["base-sync"]["status"], "observed")
+        self.assertEqual(self.owner["repair_batches_used"], 0)
+
+    def test_each_accepted_repair_has_at_most_one_publication_operation(self):
+        for index in range(2):
+            identity = f"claim-{index}"
+            self.apply(type="finding", finding=finding(identity))
+            self.apply(type="begin_repair", id=f"repair-{index}", finding_ids=[identity])
+            self.apply(type="resolve", id=identity, evidence=["proving test passed"])
+            self.apply(type="finish_repair", id=f"repair-{index}")
+        refs = {"branch": {"before": "a" * 40, "after": "b" * 40}}
+        event = {"type": "push_intent", "id": "publication-1", "cause": "repair", "repair_ids": ["repair-0", "repair-1"], "refs": refs}
+        self.apply(**event)
+        self.apply(type="push_observed", remote_shas={"branch": "b" * 40})
+        self.apply(**event)
+        state.save(self.path, self.owner)
+        self.owner = state.load(self.path)
+        for repair_id in ["repair-0", "repair-1"]:
+            with self.assertRaisesRegex(ValueError, "one.*repair|repair.*publication"):
+                self.apply(**(event | {"id": "publication-2", "repair_ids": [repair_id]}))
+        self.assertEqual(self.owner["repair_batches_used"], 2)
+        self.assertEqual(len(self.owner["pushes"]), 1)
+
+    def test_publication_cause_and_associations_fail_closed(self):
+        event = {"type": "push_intent", "id": "initial", "cause": "initial", "refs": {"branch": {"before": "a" * 40, "after": "b" * 40}}}
+        for changed in [{"cause": None}, {"cause": "unknown"}, {"cause": "history"}, {"cause": "repair"}, {"cause": "repair", "repair_ids": ["missing"]}, {"repair_ids": ["missing"]}]:
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                self.apply(**(event | changed))
+        self.apply(**event)
+        corrupted = copy.deepcopy(self.owner)
+        corrupted["pushes"]["initial"].pop("cause", None)
+        with self.assertRaisesRegex(ValueError, "cause"):
+            state.validate(corrupted)
 
     def test_required_feedback_has_deadline_and_current_head(self):
         self.apply(type="feedback", ref="branch", head_sha="a" * 40, required=["CI", "Bugbot"], deadline=100, results={"CI": {"head_sha": "a" * 40, "status": "passed"}})
@@ -209,6 +294,18 @@ class StateTests(unittest.TestCase):
         for change in [{"deadline": 200}, {"required": ["CI"]}]:
             with self.assertRaisesRegex(ValueError, "deadline|required|unchanged"):
                 self.apply(type="feedback", **({"ref": "branch", "head_sha": "a" * 40, "required": ["CI", "Bugbot"], "deadline": 100, "results": {}} | change))
+
+    def test_explicit_canonical_gate_overrides_low_risk_exemption(self):
+        self.owner["feature_contract"].update(risk="low", review_required=False, canonical_abstraction_required=True, review_kind="focused")
+        targets = {"branch": {"headSha": "a" * 40}}
+        self.apply(type="targets", targets=targets)
+        evidence = {"targets": targets, "criteria": {"sanitize control bytes": ["test"]}, "checks": ["check"], "clean": True, "ancestry": True}
+        for review in [None, {"complete": True, "refs": ["focused report"], "blocking": False}]:
+            self.apply(type="evidence", evidence=evidence | ({"review": review} if review else {}))
+            with self.assertRaisesRegex(ValueError, "review|canonical"):
+                state.require_ready(self.owner)
+        self.apply(type="evidence", evidence=evidence | {"review": {"complete": True, "refs": ["canonical packet"], "verdict": "ALIGNED WITH FINDINGS"}})
+        state.require_ready(self.owner)
 
     def test_optional_findings_do_not_block_current_evidence_readiness(self):
         self.apply(type="finding", finding=finding(disposition="follow_up", necessity="optional"))
