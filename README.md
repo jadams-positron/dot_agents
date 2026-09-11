@@ -22,7 +22,7 @@ skills/
 
 See [conductors/README.md](conductors/README.md) for the Agent Deck design,
 configured conductors, setup commands, and verification. See
-[Change-Control Flow](docs/change-control-flow.md) for the shared bounded coding
+[Change-Control Flow](docs/change-control-flow.md) for the shared scope-aware coding
 workflow and root/leaf control model.
 
 ## Skills

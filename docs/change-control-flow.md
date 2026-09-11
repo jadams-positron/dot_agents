@@ -1,6 +1,8 @@
 # Change-Control Flow
 
-This is the control flow shared by bounded coding workflows. The canonical policy is [`change-control`](../skills/change-control/SKILL.md).
+This is the control flow shared by scope-aware coding workflows. The canonical policy is [`change-control`](../skills/change-control/SKILL.md).
+
+File lists, diff estimates, and repair/retry counts are planning information, not approval gates. Continue necessary in-scope implementation and verification as estimates change. Honor explicit user limits and stop for genuine blockers, missing authorization, or safety concerns—not agent-invented size or attempt caps.
 
 ```text
 USER REQUEST
@@ -17,15 +19,15 @@ USER REQUEST
     |
     v
 +----------------------------------+
-| Freeze change-control contract   |
+| Establish scope and safety       |
 |                                  |
 | - acceptance criteria            |
 | - safety invariants              |
 | - base and candidate head        |
-| - expected files and diff size   |
+| - advisory file/diff estimates   |
 | - generated artifacts            |
 | - risk tier and required gates   |
-| - repair and retry budgets       |
+| - explicit user limits only      |
 +----------------------------------+
     |
     v
@@ -62,7 +64,7 @@ USER REQUEST
                    +---+---+
                        |
                        v
-                  within budget?
+          authorized in-scope work?
                     /      \
                   yes      no
                    |        |
@@ -70,10 +72,10 @@ USER REQUEST
                  repair
                    |
                    v
-          compare actual changed surface
-          with the frozen estimate
+          update estimates and explain
+          actual changed surface
                    |
-             expansion needed?
+          new authorization needed?
                  /      \
                no       yes
                |         |
@@ -97,9 +99,9 @@ USER REQUEST
               /         \
             no          yes
             |            |
-            |      repair round left?
+            |      genuine blocker?
             |         /       \
-            |       yes       no
+            |       no        yes
             |        |         |
             |        v         +----------> STOP AND ASK
             |    focused repair
@@ -119,8 +121,8 @@ USER REQUEST
             yes       no
              |         |
              |    classify failure
-             |    and consume repair
-             |    budget, or stop
+             |    and repair in scope,
+             |    or report a blocker
              |
              v
      +-------------------------+
@@ -131,8 +133,8 @@ USER REQUEST
                   v
      +-------------------------+
      | Create draft PR         |
-     | CI and Bugbot use the   |
-     | same repair budget      |
+     | CI and Bugbot follow    |
+     | the same scope rules    |
      +------------+------------+
                   |
                   v
@@ -140,7 +142,7 @@ USER REQUEST
      | Final verification      |
      | - latest SHA green      |
      | - no blocking findings  |
-     | - scope/budget recorded |
+     | - scope/limits recorded |
      +------------+------------+
                   |
                   v
@@ -170,18 +172,18 @@ commit, push, repair their own findings, or restart the caller.
 ```text
 work-gh-issues  [SOLE ROOT / STACK OWNER]
     |
-    +-- freeze stack and per-issue budgets
+    +-- record stack/per-issue criteria and explicit user limits
     +-- issue A -> delegated work-issue -> focused checks -> commit A
     +-- issue B -> delegated work-issue -> focused checks -> commit B
     +-- issue C -> delegated work-issue -> focused checks -> commit C
     +-- rebase stack
     +-- freeze aggregate candidate
     +-- one aggregate risk-appropriate review
-    +-- bounded repairs routed to the owning issue
+    +-- in-scope repairs routed to the owning issue
     +-- one final stack gate
     +-- pr-description leaf per immediate PR diff
     +-- submit stack
-    +-- bounded CI/Bugbot handling bottom-to-tip
+    +-- in-scope CI/Bugbot handling bottom-to-tip
     +-- mark ready when every latest SHA is green
     `-- never merge
 ```
