@@ -18,10 +18,10 @@ Treat a runbook as an executable safety artifact, not merely prose.
 - Validate both the source and the rendered or published form when the
   repository provides a documentation site.
 
-## `api.positron.ai` Operator Manual
+## `mcc` Operator Manual
 
 For runbooks in
-`~/code/github/positron-ai/api.positron.ai/`, inspect the live repository
+`~/code/github/positron-ai/mcc/`, inspect the live repository
 instructions and site configuration before editing. The current integration is:
 
 1. Keep operator runbooks under `docs/manual/runbooks/`; Zensical publishes
