@@ -250,7 +250,7 @@ This is an independent issue rooted on `{base_branch}`. Use that exact branch fo
 
 Freeze acceptance criteria, risk, expected files, and approximate hand-written diff. Use two total repair rounds and three attempts for one unchanged failure. Produce the smallest correct diff, stop before expansion, and do not invoke fix-all or wiggum. Run focused checks, one risk-appropriate stable-candidate review, and the required full gate once.
 
-Use the pr-description skill as the sole PR-body authoring path. Create a validated rich body from the exact base-to-head diff and observed evidence, include Example Usage when applicable, and refresh it against the final SHA after CI and Bugbot. Before rewriting a live body, preserve any Bugbot summary appended at the end byte-for-byte and validate against the live snapshot with --existing-body.
+Use the pr-description skill as the sole PR-body authoring path. Create a validated plain body from the exact base-to-head diff and observed evidence, include Example Usage when applicable, and refresh it against the final SHA after CI and Bugbot. Before rewriting a live body, preserve any Bugbot summary appended at the end byte-for-byte and validate against the live snapshot with --existing-body.
 
 Create the PR as a draft, assign it to @me, apply the appropriate labels from issue #{root_issue}, include Closes #{root_issue}, complete the CI and Bugbot workflow, never merge, and never add AI attribution."""
         return append_extra_instructions(prompt, extra_instructions)
