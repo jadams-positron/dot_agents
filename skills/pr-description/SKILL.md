@@ -1,6 +1,6 @@
 ---
 name: pr-description
-description: Draft or validate a PR description from a frozen diff and observed evidence. Operate as a leaf when called by another workflow, consuming its review packet without repairing code or restarting gates. Standalone outward writes perform at most one risk-required review.
+description: Draft, refresh, or validate a PR description from a frozen diff and observed evidence, ending every draft with a pr-hygiene and distill pass so the body is plain and short. Operate as a leaf when called by another workflow, consuming its review packet without repairing code or restarting gates. Standalone outward writes perform at most one risk-required review.
 ---
 
 # PR Description
@@ -8,7 +8,8 @@ description: Draft or validate a PR description from a frozen diff and observed 
 Use this skill as the single source of truth for pull-request body authoring. It
 supports both pre-create descriptions built from a local branch and refreshes of
 an existing PR. Draft or perform the outward edit according to the authorization
-already granted by the user or calling workflow.
+already granted by the user or calling workflow. Every draft ends with the
+[plain-language pass](#finish-with-the-plain-language-pass).
 
 ## Build the evidence set
 
@@ -41,31 +42,31 @@ workflow may do that only after its remaining review, CI, and repair gates.
 
 ## Write the body
 
-Use these sections in this order.
+Write for a reviewer who has not seen the work. Keep the body to about 150–250
+words, not counting transcripts, examples, trailers, or a preserved Bugbot block.
+The body of positron-ai/mcc #1178 (`gh pr view 1178 -R positron-ai/mcc`) is the
+model.
 
-### `## Summary`
+Use this shape, in this order:
 
-Explain the problem and why it matters, then the implemented approach. Cover the
-important control or data flow and any user, operator, API, compatibility, or
-safety behavior. State meaningful scope boundaries, dependencies, and non-goals.
+1. **Why, with no heading.** Open with one short paragraph in everyday words:
+   the problem, who it affects, and why it matters. Never put a heading above it
+   or open with "This PR adds…".
+2. **What changes.** Under a `What changes:` line, list a few outcomes for the
+   people and systems affected, not the files or functions that changed. Explain
+   each new term once, where it first appears. Name a deliberate non-change or
+   scope boundary when a reviewer would otherwise assume it.
+3. **`## What's open`.** One line per real item, each with its reason or linked
+   issue: deferred work, a known limit, or what only a deploy or live check can
+   show. Omit the section when nothing is open.
+4. **`## Testing`.** Three to five lines on what is proven: each exact command
+   or CI run, with the behavior it covers when the name does not say. Say
+   `Not run` with the reason for any material gap. Never paste logs.
 
-### `## How to Review`
-
-Give the reviewer an efficient, concrete path through the change:
-
-- name the files or packages to read, in order;
-- identify invariants, failure paths, security boundaries, or judgment calls;
-- distinguish mechanical or intentionally unchanged areas;
-- provide a focused sanity check when one helps validate the behavior.
-
-Do not write generic advice such as “review the diff.”
-
-### `## Testing`
-
-List exact commands and observed results. Explain which behavior, edge cases, or
-contracts each check covers when the command name is not self-explanatory. Include
-applicable race, security, coverage, hardware, live-environment, and red/green
-evidence. Say `Not run` with the reason for any material gap.
+Write in the reader's words, not the workflow's. Caller packets carry labels the
+reader never saw: phase or PR-slot labels (E1), finding IDs (R1, M12), round
+names (fixes-3), and reviewer jargon (oracle, stand-in). Say what each one means,
+or leave it out.
 
 ### `## Live Evidence`
 
@@ -108,8 +109,10 @@ Never invent configuration keys, output, or behavior.
 ## Add optional sections only when useful
 
 Place optional detail after the core sections and before closing trailers. Common
-sections are `## Risk and Rollback`, `## Dependencies / Stack`, `## Breaking
-Changes`, `## Deployment / Operator Notes`, and `## Out of Scope`.
+sections are `## How to Review` (only when a reviewer needs a starting file or an
+invariant the diff does not show), `## Risk and Rollback`, `## Dependencies /
+Stack`, `## Breaking Changes`, `## Deployment / Operator Notes`, and `## Out of
+Scope`.
 
 Put issue-closing and stack trailers last in the agent-authored content, for
 example:
@@ -133,6 +136,23 @@ If the exact block cannot be recovered, do not rewrite the live description.
 The issue-closing and stack trailers remain last in the agent-authored content;
 the preserved Bugbot block follows them because Bugbot owns that appended
 content.
+
+## Finish with the plain-language pass
+
+End every draft with this pass, in standalone and leaf mode, before the body is
+validated, returned, or published:
+
+1. Load the `pr-hygiene` skill and apply its description rules and its "Check
+   before posting" list.
+2. Load the `distill` skill and run it over the body. Its preservation contract
+   is the evidence set: every claim, command, result, link, and trailer survives.
+   Leave a preserved Bugbot block untouched.
+3. Check the result against [Write the body](#write-the-body): why first without
+   a heading, outcomes rather than mechanics, no internal shorthand, one line per
+   open item, three to five Testing lines, and about 150–250 words.
+
+If either skill is unavailable, apply the rules in this file and say so. The pass
+rewrites prose only; it never repairs code, adds claims, or restarts caller gates.
 
 ## Publish and verify
 

@@ -5,13 +5,11 @@ import unittest
 from validate_pr_body import validate
 
 
-GOOD_BODY = """## Summary
+GOOD_BODY = """Operators cannot enable widgets without a restart.
 
-Adds the requested widget behavior without changing the public API.
+What changes:
 
-## How to Review
-
-Read `internal/widget.go` first and verify failures remain closed.
+- Widgets can be enabled at runtime; the public API is unchanged.
 
 ## Testing
 
@@ -48,16 +46,15 @@ class ValidatePRBodyTest(unittest.TestCase):
     def test_accepts_complete_body(self) -> None:
         self.assertEqual(validate(GOOD_BODY, issue=73, require_example=True), [])
 
-    def test_requires_core_sections(self) -> None:
-        errors = validate("## Summary\n\nChange.\n")
-        self.assertIn("expected exactly one ## How to Review heading", errors)
-        self.assertIn("expected exactly one ## Testing heading", errors)
-
-    def test_requires_core_section_order(self) -> None:
-        body = "## How to Review\n\nRead.\n## Summary\n\nChange.\n## Testing\n\nPassed.\n"
+    def test_requires_testing_section(self) -> None:
         self.assertIn(
-            "required sections must be ordered: Summary, How to Review, Testing",
-            validate(body),
+            "expected exactly one ## Testing heading", validate("Why.\n")
+        )
+
+    def test_requires_opening_why_without_heading(self) -> None:
+        self.assertIn(
+            "body must open with a why paragraph, not a heading",
+            validate(f"## Summary\n\n{GOOD_BODY}"),
         )
 
     def test_requires_example_when_requested(self) -> None:
