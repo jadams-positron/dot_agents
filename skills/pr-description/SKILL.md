@@ -68,6 +68,9 @@ reader never saw: phase or PR-slot labels (E1), finding IDs (R1, M12), round
 names (fixes-3), and reviewer jargon (oracle, stand-in). Say what each one means,
 or leave it out.
 
+Do not hard-wrap prose: GitHub renders each single newline in a PR body as a line
+break, so write each paragraph and list item as one line.
+
 ### `## Live Evidence`
 
 Include this section whenever deployed or runtime behavior was exercised, or
@@ -148,8 +151,9 @@ validated, returned, or published:
    is the evidence set: every claim, command, result, link, and trailer survives.
    Leave a preserved Bugbot block untouched.
 3. Check the result against [Write the body](#write-the-body): why first without
-   a heading, outcomes rather than mechanics, no internal shorthand, one line per
-   open item, three to five Testing lines, and about 150–250 words.
+   a heading, outcomes rather than mechanics, no internal shorthand, no
+   hard-wrapped prose, one line per open item, three to five Testing lines, and
+   about 150–250 words.
 
 If either skill is unavailable, apply the rules in this file and say so. The pass
 rewrites prose only; it never repairs code, adds claims, or restarts caller gates.
