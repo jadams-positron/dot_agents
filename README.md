@@ -49,6 +49,7 @@ over with `cutover-strangler-runbook`.
 | Skill | Description |
 |---|---|
 | [`change-control`](skills/change-control/SKILL.md) | Shared smallest-diff, risk-proportionate, single-orchestrator contract. |
+| [`decide`](skills/decide/SKILL.md) | Walk the user through every open decision, or those on a given topic, one at a time. |
 | [`distill`](skills/distill/SKILL.md) | Simplify through one proportionate pass by default, capped at three. |
 | [`document-research`](skills/document-research/SKILL.md) | Create or update a research document in the "Reliability & Orchestration Research" Notion database — an investigation, evaluation, spike, or benchmark rendered as a well-structured, well-cited row following the teamspace's schema and conventions. |
 | [`file-issue`](skills/file-issue/SKILL.md) | File GitHub issues against `positron-ai` repos and add each to an org-level GitHub Project in a single workflow. |
